@@ -67,6 +67,13 @@ functions:
         script: |-
           ${compile_env|} ./libmongocrypt/.evergreen/compile.sh
           cd ./libmongocrypt/bindings/python && ${test_env|} ./.evergreen/test.sh
+  
+  "build and test node":
+    - command: "shell.exec"
+      params:
+        script: |-
+          ${compile_env|} ./libmongocrypt/.evergreen/compile.sh
+          cd ./libmongocrypt/bindings/node && ${test_env|} PROJECT_DIRECTORY=${project_directory} ./.evergreen/test.sh
 
   "publish snapshot":
     - command: shell.exec
@@ -143,6 +150,11 @@ tasks:
   commands:
     - func: "fetch source"
     - func: "build and test python"
+
+- name: build-and-test-node
+  commands:
+    - func: "fetch source"
+    - func: "build and test node"
 
 - name: publish-snapshot
   depends_on:
@@ -373,6 +385,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-java
   - build-and-test-python
+  - build-and-test-node
 - name: rhel-67-s390x
   display_name: "RHEL 6.7 s390x"
   run_on: rhel67-zseries-test
