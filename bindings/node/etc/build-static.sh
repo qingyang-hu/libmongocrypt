@@ -29,7 +29,7 @@ pushd $TOP_DIR
 # NOTE: On OSX, -DCMAKE_OSX_DEPLOYMENT_TARGET can be set to an OSX version
 # to suppress build warnings. However, doing that tends to break some
 # of the versions that can be built
-export BSON_EXTRA_CMAKE_FLAGS="-DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_OSX_DEPLOYMENT_TARGET=\"10.12\" -DENABLE_WINDOWS_STATIC_RUNTIME=1"
+export BSON_EXTRA_CMAKE_FLAGS="-DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_OSX_DEPLOYMENT_TARGET=\"10.12\" -DCMAKE_C_FLAGS_RELWITHDEBINFO=\"/MT\""
 . ${TOP_DIR}/libmongocrypt/.evergreen/build_install_bson.sh
 
 popd #./deps/tmp
