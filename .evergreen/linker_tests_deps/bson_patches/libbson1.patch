@@ -6,7 +6,7 @@ index 0e1523331..aa7112305 100644
  {
     void *mem = NULL;
  
-+   printf ("bson_malloc0 called from libbson1\n");
++   printf (".from libbson1.");
     if (BSON_LIKELY (num_bytes)) {
        if (BSON_UNLIKELY (!(mem = gMemVtable.calloc (1, num_bytes)))) {
           fprintf (stderr, "Failure to allocate memory in bson_malloc0(). errno: %d.\n", errno);
