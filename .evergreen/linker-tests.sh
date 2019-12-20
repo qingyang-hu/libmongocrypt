@@ -71,7 +71,12 @@ echo "Test case: Modelling libmongoc's use"
 # app links against libbson1.so
 # app links against libmongocrypt.so
 cd $linker_tests_root/app-cmake-build
-$CMAKE -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_PREFIX_PATH="$linker_tests_root/install/bson1:$linker_tests_root/install/libmongocrypt" $linker_tests_deps_root/app
+if [ "$OS" == "Windows_NT" ]; then
+    PREFIX_PATH="$(cygpath -a $linker_tests_root/install/bson1 -w);$(cygpath -a $linker_tests_root/install/libmongocrypt -w)"
+else
+    PREFIX_PATH="$linker_tests_root/install/bson1;$linker_tests_root/install/libmongocrypt"
+fi
+$CMAKE -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_PREFIX_PATH=$PREFIX_PATH $linker_tests_deps_root/app
 $CMAKE --build . --target app --config RelWithDebInfo
 
 check_output () {
