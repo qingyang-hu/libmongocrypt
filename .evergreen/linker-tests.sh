@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -o xtrace
-# set -o errexit
+
 
 # Directory layout
 # .evergreen
@@ -49,10 +49,7 @@ else
     . ./.evergreen/find-cmake.sh
 fi
 
-# TEMP
-CMAKE=cmake
-
-git apply $linker_tests_deps_root/bson_patches/libbson1.patch
+git apply --ignore-whitespace $linker_tests_deps_root/bson_patches/libbson1.patch
 mkdir cmake-build
 cd cmake-build
 $CMAKE -DBUILD_VERSION=1.16.0-pre -DENABLE_MONGOC=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_INSTALL_PREFIX=$linker_tests_root/install/bson1 ../
@@ -60,7 +57,7 @@ $CMAKE --build . --target install --config RelWithDebInfo
 # Make libbson2
 cd ..
 git reset --hard
-git apply $linker_tests_deps_root/bson_patches/libbson2.patch
+git apply --ignore-whitespace $linker_tests_deps_root/bson_patches/libbson2.patch
 cd cmake-build
 $CMAKE -DBUILD_VERSION=1.16.0-pre -DENABLE_MONGOC=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_INSTALL_PREFIX=$linker_tests_root/install/bson2 ../
 $CMAKE --build . --target install --config RelWithDebInfo
@@ -74,14 +71,20 @@ echo "Test case: Modelling libmongoc's use"
 # app links against libbson1.so
 # app links against libmongocrypt.so
 cd $linker_tests_root/app-cmake-build
-$CMAKE -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_PREFIX_PATH="$linker_tests_root/install/bson1;$linker_tests_root/install/libmongocrypt" $linker_tests_deps_root/app
+$CMAKE -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_PREFIX_PATH="$linker_tests_root/install/bson1:$linker_tests_root/install/libmongocrypt" $linker_tests_deps_root/app
 $CMAKE --build . --target app --config RelWithDebInfo
 
 check_output () {
-    if [ "$1" != "$2" ]; then
-        echo "got '$1', expecting '$2'"
+    if [ "$OS" == "Windows_NT" ]; then
+        output="$(./RelWithDebInfo/app.exe)"
+    else
+        output="$(./app)"
+    fi
+
+    if [ "$output" != "$1" ]; then
+        echo "got '$output', expecting '$1'"
         exit 1;
     fi
     echo "ok"
 }
-check_output "$(./app)" ".calling bson_malloc0..from libbson1..calling mongocrypt_binary_new..from libbson2."
+check_output ".calling bson_malloc0..from libbson1..calling mongocrypt_binary_new..from libbson2."
