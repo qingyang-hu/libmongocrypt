@@ -37,7 +37,7 @@ mkdir linker_tests/app-cmake-build
 cd linker_tests
 
 # Make libbson1 and libbson2
-git clone git@github.com:mongodb/mongo-c-driver.git --depth=1 --config core.eol=lf --config core.autocrlf=false
+git clone https://github.com/mongodb/mongo-c-driver.git --depth=1 --config core.eol=lf --config core.autocrlf=false
 cd mongo-c-driver
 
 # Use C driver helper script to find cmake binary, stored in $CMAKE.
