@@ -1,0 +1,6 @@
+{
+    global: mongocrypt_*
+};
+mongocrypt {
+    local: *
+};
