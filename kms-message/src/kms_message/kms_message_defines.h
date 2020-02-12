@@ -54,6 +54,7 @@ kms_message_cleanup (void);
 #endif
 
 #ifdef _MSC_VER
+#include <stdint.h>
 #include <basetsd.h>
 #ifndef __cplusplus
 /* benign redefinition of type */
