@@ -1115,6 +1115,215 @@ kms_signature_test (void)
 #endif
 }
 
+#include <Security/SecKey.h>
+#include <Security/SecItem.h>
+#include <Security/SecImportExport.h>
+#include <CoreFoundation/CFArray.h>
+
+/* Helpful reference for creating a CFDictionaryRef:
+ * https://gist.github.com/macmade/9434900
+ */
+CFDictionaryRef getAttrs (void) {
+   CFStringRef keys[3];
+   CFTypeRef values[3];
+   CFDictionaryRef dict;
+   int keySizeInBits = 2048;
+
+   keys[0] = kSecAttrKeyType;
+   keys[1] = kSecAttrKeyClass;
+   keys[2] = kSecAttrKeySizeInBits;
+
+   values[0] = kSecAttrKeyTypeRSA;
+   values[1] = kSecAttrKeyClassPrivate;
+   values[2] = CFNumberCreate (NULL, kCFNumberIntType, &keySizeInBits);
+   
+   dict = CFDictionaryCreate (NULL,
+      (const void**)keys,
+      (const void**)values,
+      3,
+      &kCFTypeDictionaryKeyCallBacks,
+      &kCFTypeDictionaryValueCallBacks);
+
+   /*
+   {
+    bsiz = 2048;
+    kcls = 1;
+    type = 42;
+   }
+   */
+   CFShow (dict);
+   return dict;
+}
+
+static void status_print (OSStatus status) {
+   CFStringRef str = SecCopyErrorMessageString (status, NULL);
+   const char *cstr = CFStringGetCStringPtr (str, kCFStringEncodingUTF8);
+   printf ("status=%s\n", cstr);
+}
+
+// static void format_print (SecExternalFormat format) {
+//    switch (format) {
+//       case kSecFormatUnknown:
+//       printf ("kSecFormatUnknown\n");
+//       break;
+//       case kSecFormatOpenSSL:
+//       printf ("kSecFormatOpenSSL\n");
+//       break;
+//       case kSecFormatSSH:
+//       printf ("kSecFormatSSH\n");
+//       break;
+//       case kSecFormatBSAFE:
+//       printf ("kSecFormatBSAFE\n");
+//       break;
+//       case kSecFormatSSHv2:
+//       printf ("kSecFormatSSHv2\n");
+//       break;
+//       case kSecFormatRawKey:
+//       printf ("kSecFormatRawKey\n");
+//       break;
+//       case kSecFormatWrappedPKCS8:
+//       printf ("kSecFormatWrappedPKCS8\n");
+//       break;
+//       case kSecFormatWrappedOpenSSL:
+//       printf ("kSecFormatWrappedOpenSSL\n");
+//       break;
+//       case kSecFormatWrappedSSH:
+//       printf ("kSecFormatWrappedSSH\n");
+//       break;
+//       case kSecFormatWrappedLSH:
+//       printf ("kSecFormatWrappedLSH\n");
+//       break;
+//       case kSecFormatX509Cert:
+//       printf ("kSecFormatX509Cert\n");
+//       break;
+//       case kSecFormatPEMSequence:
+//       printf ("kSecFormatPEMSequence\n");
+//       break;
+//       case kSecFormatPKCS7:
+//       printf ("kSecFormatPKCS7\n");
+//       break;
+//       case kSecFormatPKCS12:
+//       printf ("kSecFormatPKCS12\n");
+//       break;
+//       case kSecFormatNetscapeCertSequence:
+//       printf ("kSecFormatNetscapeCertSequence\n");
+//       break;
+//       default:
+//       printf ("idklol\n");
+//       break;
+//    }
+// }
+
+static void
+kms_signature_test_cc (void) {
+   /* Load a key from data. */
+   /* TODO: this is temporary to test that the signature is correct (test GCP live auth request).
+    * Before putting this up for CR, make a new private key, include it in the repo. */
+   const char *private_key_b64 =
+      "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC4JOyv5z05cL18ztpknRC7"
+      "CFY2gYol4DAKerdVUoDJxCTmFMf39dVUEqD0WDiw/qcRtSO1/"
+      "FRut08PlSPmvbyKetsLoxlpS8lukSzEFpFK7+L+R4miFOl6HvECyg7lbC1H/"
+      "WGAhIz9yZRlXhRo9qmO/"
+      "fB6PV9IeYtU+"
+      "1xYuXicjCDPp36uuxBAnCz7JfvxJ3mdVc0vpSkbSb141nWuKNYR1mgyvvL6KzxO6mYsCo4hR"
+      "AdhuizD9C4jDHk0V2gDCFBk0h8SLEdzStX8L0jG90/Og4y7J1b/cPo/"
+      "kbYokkYisxe8cPlsvGBf+rZex7XPxc1yWaP080qeABJb+S88O//"
+      "LAgMBAAECggEBAKVxP1m3FzHBUe2NZ3fYCc0Qa2zjK7xl1KPFp2u4CU+"
+      "9sy0oZJUqQHUdm5CMprqWwIHPTftWboFenmCwrSXFOFzujljBO7Z3yc1WD3NJl1ZNepLcsRJ"
+      "3WWFH5V+NLJ8Bdxlj1DMEZCwr7PC5+vpnCuYWzvT0qOPTl9RNVaW9VVjHouJ9Fg+"
+      "s2DrShXDegFabl1iZEDdI4xScHoYBob06A5lw0WOCTayzw0Naf37lM8Y4psRAmI46XLiF/"
+      "Vbuorna4hcChxDePlNLEfMipICcuxTcei1RBSlBa2t1tcnvoTy6cuYDqqImRYjp1KnMKlKQB"
+      "nQ1NjS2TsRGm+F0FbreVCECgYEA4IDJlm8q/hVyNcPe4OzIcL1rsdYN3bNm2Y2O/"
+      "YtRPIkQ446ItyxD06d9VuXsQpFp9jNACAPfCMSyHpPApqlxdc8z/"
+      "xATlgHkcGezEOd1r4E7NdTpGg8y6Rj9b8kVlED6v4grbRhKcU6moyKUQT3+"
+      "1B6ENZTOKyxuyDEgTwZHtFECgYEA0fqdv9h9s77d6eWmIioP7FSymq93pC4umxf6TVicpjpM"
+      "ErdD2ZfJGulN37dq8FOsOFnSmFYJdICj/PbJm6p1i8O21lsFCltEqVoVabJ7/"
+      "0alPfdG2U76OeBqI8ZubL4BMnWXAB/"
+      "VVEYbyWCNpQSDTjHQYs54qa2I0dJB7OgJt1sCgYEArctFQ02/"
+      "7H5Rscl1yo3DBXO94SeiCFSPdC8f2Kt3MfOxvVdkAtkjkMACSbkoUsgbTVqTYSEOEc2jTgR3"
+      "iQ13JgpHaFbbsq64V0QP3TAxbLIQUjYGVgQaF1UfLOBv8hrzgj45z/ST/"
+      "G80lOl595+0nCUbmBcgG1AEWrmdF0/"
+      "3RmECgYAKvIzKXXB3+19vcT2ga5Qq2l3TiPtOGsppRb2XrNs9qKdxIYvHmXo/"
+      "9QP1V3SRW0XoD7ez8FpFabp42cmPOxUNk3FK3paQZABLxH5pzCWI9PzIAVfPDrm+"
+      "sdnbgG7vAnwfL2IMMJSA3aDYGCbF9EgefG+"
+      "STcpfqq7fQ6f5TBgLFwKBgCd7gn1xYL696SaKVSm7VngpXlczHVEpz3kStWR5gfzriPBxXgM"
+      "VcWmcbajRser7ARpCEfbxM1UJyv6oAYZWVSNErNzNVb4POqLYcCNySuC6xKhs9FrEQnyKjyk"
+      "8wI4VnrEMGrQ8e+qYSwYk9Gh6dKGoRMAPYVXQAO0fIsHF/T0a";
+   /* This is PKCS #1. */
+   //const char *private_key_b64_full = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDFjjaMrdlnlUtl\nmekOeGHWLLeyJ9e89OJBQkjkydJM8sts/ikh35vdZE1ceaLLkC06yx07XW6G1ks8\nlxNy8pJf0PRm1CqFfwJz8waUNShUuLURaFEirmuX2jh2PTBGIC+prJQIr6Oyj7Iv\nRey4AEzRKQJHh0TiDct9CEwm7oPWIyvL+nY3akSP3To+c2IzYpLU2QMcxKGOBd4r\ncHRwVXcUCdLlvf6iA1oJJx6V6o9EYooBAnMrQaFwIbmZOmsFP7brKKd2hzefrVDy\nBeGtQWLBe2PsxYFx9CTes7OYuu2/qkhs4yS0+/FppoEQ1UQ2SiLWfc76f5qGYAg2\nW3R/VWvZAgMBAAECggEAQciUU44EaeCl5aQ1nfLqKUZkuPdZeHtW6AIpgb3OwH7M\nzHNpwPTT0wn2VMfQNNbCqOQ/zKfVCSNMlFV+TXWG1k8fQyp9KkzbxT50v19gGa4T\n5UMGWXUZMMyipoTDkWZgWLC17pqF+Qyued1f8Plwmul779OUVW3gh7b+nKwpzGD8\n8jzj0p+iGN0N7zHm/+WAX9KRkXuLuyYhS8nCdwg02f2RVRM1Z3iV4ChcV1Qu+ap0\nNkEbj4fLx7/YEntMEL8inNfd1BaDFY0BDwSz2TAjdTrbXydcQXc5necSVWdZ7DN9\nl7zYIaAITm1UuuJ92LTfoF8kdzggtLHKMp6Y8s4nHQKBgQD92tI18hXGuZwx9Ts9\nX2NyxJQJVK43mTKfhriyzFF/sNBjfqFioC1/akKBDR4au4OwuNCrSpMMr9tkr6CY\nec0pl16NE/pMWLdeFom+jO8k8w1oRSNNoMiQJNcO6qrRInCb2vQ8HnSTz75T7ap4\ndhQ1Ly2lBv8pQs9nMVSE9kcd0wKBgQDHOZizhPPGXL7GzVU12g41MtQxF2jU4rns\nroMnHTKq9aF+qy3NEaMFRtPbpvzIRTzcQNjmK7IkwFN44wn/QwT+k35Wim5VwaPK\nhty0zMZqRfZSiFbQ28rrLhsASp0HhAvYMapnDTfwBNlAwqffSrsFfNC8FqndVGGL\nBQqNx0NIIwKBgB1bX/IDJAeOUYTpgkdPr7WHDEOj+l3NprASKWvr+wTUUtUewNUi\nBwD0Leq0tKWMx+b5CJC2mBjggXO8Z8saUuKbccDI7apEnDgSTS2vKLzSKtvDGxkQ\nHgGlcQV1l/mFjRZJFPOa5gpt/OnB03QI279mzFWIYJvJ8ShS6R5TSNgnAoGAMSxW\nNHksclmR/R/RWGlp+FeDaFqO1XzgxzqLxKvARdI6+jjmJSelRTgmMqEU45mzW+nl\nn2pJniiaccwYO5kfMnbVSCcC9MfG1cZT04x3rON32Qct5n9ZppLKt1ezSpedFM+t\nb6IjnGqV9RYWuVaIsuIL42D0rFyXdujXogb85GECgYEA7XoB7MwDiYr4EKD7bGQV\naJbvg6nLuvMsuEWupw4+y0Cta+aoPlLOqFd8E/ShEihmYvR4tJ80O0S5lEG1xiUR\nEDz8saM/St79RqtkTFB+1aCQ8DbSblw8mLmqSGWSvBztwrBaDFIkQv9FkXoctf/1\nXmmKrcq405G9by7Tsx0FTX8=\n-----END PRIVATE KEY-----\n";
+   //const char *private_key_b64 = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDFjjaMrdlnlUtlmekOeGHWLLeyJ9e89OJBQkjkydJM8sts/ikh35vdZE1ceaLLkC06yx07XW6G1ks8lxNy8pJf0PRm1CqFfwJz8waUNShUuLURaFEirmuX2jh2PTBGIC+prJQIr6Oyj7IvRey4AEzRKQJHh0TiDct9CEwm7oPWIyvL+nY3akSP3To+c2IzYpLU2QMcxKGOBd4rcHRwVXcUCdLlvf6iA1oJJx6V6o9EYooBAnMrQaFwIbmZOmsFP7brKKd2hzefrVDyBeGtQWLBe2PsxYFx9CTes7OYuu2/qkhs4yS0+/FppoEQ1UQ2SiLWfc76f5qGYAg2W3R/VWvZAgMBAAECggEAQciUU44EaeCl5aQ1nfLqKUZkuPdZeHtW6AIpgb3OwH7MzHNpwPTT0wn2VMfQNNbCqOQ/zKfVCSNMlFV+TXWG1k8fQyp9KkzbxT50v19gGa4T5UMGWXUZMMyipoTDkWZgWLC17pqF+Qyued1f8Plwmul779OUVW3gh7b+nKwpzGD88jzj0p+iGN0N7zHm/+WAX9KRkXuLuyYhS8nCdwg02f2RVRM1Z3iV4ChcV1Qu+ap0NkEbj4fLx7/YEntMEL8inNfd1BaDFY0BDwSz2TAjdTrbXydcQXc5necSVWdZ7DN9l7zYIaAITm1UuuJ92LTfoF8kdzggtLHKMp6Y8s4nHQKBgQD92tI18hXGuZwx9Ts9X2NyxJQJVK43mTKfhriyzFF/sNBjfqFioC1/akKBDR4au4OwuNCrSpMMr9tkr6CYec0pl16NE/pMWLdeFom+jO8k8w1oRSNNoMiQJNcO6qrRInCb2vQ8HnSTz75T7ap4dhQ1Ly2lBv8pQs9nMVSE9kcd0wKBgQDHOZizhPPGXL7GzVU12g41MtQxF2jU4rnsroMnHTKq9aF+qy3NEaMFRtPbpvzIRTzcQNjmK7IkwFN44wn/QwT+k35Wim5VwaPKhty0zMZqRfZSiFbQ28rrLhsASp0HhAvYMapnDTfwBNlAwqffSrsFfNC8FqndVGGLBQqNx0NIIwKBgB1bX/IDJAeOUYTpgkdPr7WHDEOj+l3NprASKWvr+wTUUtUewNUiBwD0Leq0tKWMx+b5CJC2mBjggXO8Z8saUuKbccDI7apEnDgSTS2vKLzSKtvDGxkQHgGlcQV1l/mFjRZJFPOa5gpt/OnB03QI279mzFWIYJvJ8ShS6R5TSNgnAoGAMSxWNHksclmR/R/RWGlp+FeDaFqO1XzgxzqLxKvARdI6+jjmJSelRTgmMqEU45mzW+nln2pJniiaccwYO5kfMnbVSCcC9MfG1cZT04x3rON32Qct5n9ZppLKt1ezSpedFM+tb6IjnGqV9RYWuVaIsuIL42D0rFyXdujXogb85GECgYEA7XoB7MwDiYr4EKD7bGQVaJbvg6nLuvMsuEWupw4+y0Cta+aoPlLOqFd8E/ShEihmYvR4tJ80O0S5lEG1xiUREDz8saM/St79RqtkTFB+1aCQ8DbSblw8mLmqSGWSvBztwrBaDFIkQv9FkXoctf/1XmmKrcq405G9by7Tsx0FTX8=";
+   size_t rawlen;
+   uint8_t* raw;
+   SecKeyRef keyref;
+   CFDataRef dataref;
+   // CFDictionaryRef attributesref;
+   // CFErrorRef errorref = NULL;
+   OSStatus status;
+   SecItemImportExportKeyParameters import_params;
+   CFArrayRef outItems;
+   SecExternalFormat format = kSecFormatWrappedPKCS8;
+   SecExternalItemType type = kSecItemTypePrivateKey;
+   /* I do not know why. */
+   format = kSecFormatBSAFE;
+   CFDataRef empty;
+   const void* item;
+   CFDataRef data_to_sign_ref;
+   CFDataRef signature;
+   CFErrorRef error;
+   const char* data_to_sign = "data to sign";
+
+   if (!private_key_b64) {
+      printf ("set KMS_TEST_PRIVATE_KEY!\n");
+      return;
+   }
+
+   raw = kms_message_b64_to_raw (private_key_b64, &rawlen);
+   printf ("rawlen = %zu\n", rawlen);
+
+   dataref = CFDataCreate (NULL /* default allocator */, raw, (CFIndex)rawlen);
+   //dataref = CFDataCreate (NULL, (const uint8_t*)private_key_b64, (CFIndex)strlen(private_key_b64));
+   //dataref = CFDataCreate (NULL, (const uint8_t*) private_key_b64_full, (CFIndex) strlen (private_key_b64_full));
+   memset (&import_params, 0, sizeof (SecItemImportExportKeyParameters));
+   import_params.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
+   empty = CFDataCreate (NULL, NULL, 0);
+   import_params.passphrase = (CFTypeRef) empty;
+   printf ("attempting to import\n");
+   status = SecItemImport (dataref, NULL /* extension. */, &format, &type, 0, &import_params, NULL /* keychain */, &outItems);
+   status_print (status);
+
+   printf ("resulting items: %d\n", (int) CFArrayGetCount (outItems));
+   item = CFArrayGetValueAtIndex (outItems, 0);
+   if (CFGetTypeID (item) != SecKeyGetTypeID()) {
+      printf ("unexpected - this is not a private key?!\n");
+   }
+
+   keyref = (SecKeyRef) item;
+
+   /* Ok, now we have a key, let's try signing the example data. */
+   // signature_out = malloc (1000);
+   // status = SecKeyRawSign (keyref, kSecPaddingPKCS1SHA256, "data to sign", strlen("data to sign"), signature_out, &signature_out_len);
+   // status_print (status);
+
+   data_to_sign_ref = CFDataCreate (NULL, (const uint8_t*) data_to_sign, strlen(data_to_sign));
+   error = NULL;
+   signature = SecKeyCreateSignature (keyref, kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256, data_to_sign_ref, &error);
+   
+   printf ("resulting signature = %s\n", kms_message_raw_to_b64 (CFDataGetBytePtr (signature), CFDataGetLength (signature)));
+   
+   //attributesref = getAttrs();
+   // keyref = SecKeyCreateWithData (dataref, attributesref, &errorref);
+   // if (keyref) {
+   //    printf ("Success!\n");
+   // } else if (errorref) {
+   //    printf ("Failed to create key. Error reason: %s\n", CFStringGetCStringPtr(CFErrorCopyFailureReason(errorref), kCFStringEncodingUTF8));
+   // } else {
+   //    printf ("Failed to create key. Error unknown\n");
+   // }
+   // CFRelease (dataref);
+
+   return;
+}
+
 
 #define RUN_TEST(_func)                                          \
    do {                                                          \
@@ -1168,6 +1377,7 @@ main (int argc, char *argv[])
    RUN_TEST (kms_request_validate_test);
 
    RUN_TEST (kms_signature_test);
+   RUN_TEST (kms_signature_test_cc);
 
    if (!ran_tests) {
       KMS_ASSERT (argc == 2);
