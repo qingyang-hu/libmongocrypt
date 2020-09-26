@@ -68,7 +68,6 @@ kms_gcp_request_oauth_new (const char *host,
                             scope,
                             (unsigned long) issued_at,
                             (unsigned long) issued_at + JWT_EXPIRATION_SECS);
-   printf ("JWT claims: %s\n", str->str);
    jwt_claims_b64url =
       kms_message_raw_to_b64url ((const uint8_t *) str->str, str->len);
    kms_request_str_destroy (str);
@@ -85,11 +84,12 @@ kms_gcp_request_oauth_new (const char *host,
    req->crypto.sign_rsaes_pkcs1_v1_5 = kms_sign_rsaes_pkcs1_v1_5;
    if (opt->crypto.sign_rsaes_pkcs1_v1_5) {
       req->crypto.sign_rsaes_pkcs1_v1_5 = opt->crypto.sign_rsaes_pkcs1_v1_5;
+      req->crypto.sign_ctx = opt->crypto.sign_ctx;
    }
 
    jwt_signature = malloc (SIGNATURE_LEN);
    if (!req->crypto.sign_rsaes_pkcs1_v1_5 (
-          req->crypto.ctx,
+          req->crypto.sign_ctx,
           private_key_data,
           private_key_len,
           jwt_header_and_claims_b64url,
@@ -113,7 +113,6 @@ kms_gcp_request_oauth_new (const char *host,
                             jwt_signature_b64url);
    jwt_assertion_b64url = kms_request_str_detach (str);
 
-   printf ("JWT assertion: %s\n", jwt_assertion_b64url);
    str =
       kms_request_str_new_from_chars ("grant_type=urn%3Aietf%3Aparams%3Aoauth%"
                                       "3Agrant-type%3Ajwt-bearer&assertion=",

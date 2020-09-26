@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef KMS_AZURE_REQUEST_H
-#define KMS_AZURE_REQUEST_H
+#ifndef KMS_GCP_REQUEST_H
+#define KMS_GCP_REQUEST_H
 
 #include "kms_message_defines.h"
 #include "kms_request.h"
@@ -121,4 +121,4 @@ kms_gcp_request_decrypt_new (const char *host,
 } /* extern "C" */
 #endif
 
-#endif /* KMS_AZURE_REQUEST_H */
+#endif /* KMS_GCP_REQUEST_H */
