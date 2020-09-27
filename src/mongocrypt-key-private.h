@@ -33,6 +33,15 @@ typedef struct {
 } _mongocrypt_azure_kek_t;
 
 typedef struct {
+   _mongocrypt_endpoint_t *endpoint;
+   char *project_id;
+   char *location;
+   char *key_ring;
+   char *key_name;
+   char *key_version;
+} _mongocrypt_gcp_kek_t;
+
+typedef struct {
    bson_t bson; /* original BSON for this key. */
    _mongocrypt_buffer_t id;
    _mongocrypt_key_alt_name_t *key_alt_names;
@@ -44,6 +53,7 @@ typedef struct {
    uint64_t creation_date;
    uint64_t update_date;
    _mongocrypt_azure_kek_t azure_kek;
+   _mongocrypt_gcp_kek_t gcp_kek;
 } _mongocrypt_key_doc_t;
 
 _mongocrypt_key_alt_name_t *
