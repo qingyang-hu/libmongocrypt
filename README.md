@@ -36,6 +36,13 @@ make
 This builds libmongocrypt.dylib and test-libmongocrypt, in the cmake-build directory. Note, the `CMAKE_PREFIX_PATH` must include the path to the BSON library installation directory if it was not the defaults.  Also note that if your project will also dynamically link to the BSON library, you will need to add `-DENABLE_SHARED_BSON=ON` to the `cmake` command line.
 
 ## Installing libmongocrypt on macOS ##
+libmongocrypt may be installed with Homebrew as follows:
+
+```
+brew install mongo/libmongocrypt/libmongocrypt
+```
+
+## Building libmongocrypt from source on macOS ##
 First install [Homebrew according to its own instructions](https://brew.sh/). Using Homebrew, install the following dependencies.
 ```
 brew install mongo-c-driver cmake
