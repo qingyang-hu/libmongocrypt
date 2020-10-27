@@ -1161,6 +1161,32 @@ kms_signature_test (void)
    KMS_ASSERT (!ret);
 }
 
+static void
+kms_crypto_test (void) {
+   /* in hex: 37626663386235656333306537336439386565666133653263633334643635376535323734623537656633326661353862663638313534396535663737303138 */
+   const char* key_in = "7bfc8b5ec30e73d98eefa3e2cc34d657e5274b57ef32fa58bf681549e5f77018";
+   /* in hex: 74657374206f66206d6163 */
+   const char* in = "test of mac";
+   uint8_t* hash_out = malloc (32);
+   int i;
+
+   memset (hash_out, 0, 32);
+   printf ("sha256:");
+   kms_sha256 (NULL, in, strlen(in), hash_out);
+   for (i = 0; i < 32; i++) {
+      printf ("%02x", (int)hash_out[i]);
+   }
+   printf ("\n");
+
+
+   printf ("sha256 hmac:");
+   kms_sha256_hmac (NULL, key_in, strlen (key_in), in, strlen(in), hash_out);
+   for (i = 0; i < 32; i++) {
+      printf ("%02x", (int)hash_out[i]);
+   }
+   printf ("\n");
+}
+
 #define RUN_TEST(_func)                                          \
    do {                                                          \
       if (!selector || 0 == kms_strcasecmp (#_func, selector)) { \
@@ -1214,6 +1240,8 @@ main (int argc, char *argv[])
    RUN_TEST (kms_request_validate_test);
 
    RUN_TEST (kms_signature_test);
+
+   RUN_TEST (kms_crypto_test);
 
    if (!ran_tests) {
       KMS_ASSERT (argc == 2);

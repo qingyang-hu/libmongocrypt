@@ -169,4 +169,7 @@ _mongocrypt_buffer_concat (_mongocrypt_buffer_t *dst,
 struct _mongocrypt_binary_t *
 _mongocrypt_buffer_as_binary (_mongocrypt_buffer_t *buf);
 
+void
+_mongocrypt_buffer_copy_from_string (_mongocrypt_buffer_t *buf, const char* string);
+
 #endif /* MONGOCRYPT_BUFFER_H */

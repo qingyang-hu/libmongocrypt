@@ -225,9 +225,54 @@ _test_mcgrew (_mongocrypt_tester_t *tester)
    mongocrypt_destroy (crypt);
 }
 
+static void
+_test_primitives (_mongocrypt_tester_t *tester) {
+   _mongocrypt_buffer_t key;
+   _mongocrypt_buffer_t in;
+   _mongocrypt_buffer_t out;
+   _mongocrypt_buffer_t iv;
+   mongocrypt_status_t *status;
+   uint32_t bytes_written;
+
+   status = mongocrypt_status_new ();
+   _mongocrypt_buffer_copy_from_hex (&key, "06645237ece5638d1dcb66c70d8158c6ba5922dce3ae9f95242147fce0f989d9");
+   /* String "test of hmac" in hex. */
+   _mongocrypt_buffer_copy_from_hex (&in, "74657374206f6620686d61630a");
+   _mongocrypt_buffer_init (&out);
+   _mongocrypt_buffer_resize (&out, MONGOCRYPT_HMAC_SHA512_LEN);
+   ASSERT_OK_STATUS (_native_crypto_hmac_sha_512 (&key, &in, &out, status), status);
+   BSON_ASSERT (0 == _mongocrypt_buffer_cmp_hex (&out, "c8bc88465593980da5ed9bd213dcc4594106f6573d08eddc2b7cead3a642ef37dd848e8901a8c340f2a5d909057d28b1355fc9c82e7f7710e688f8c0c7635e9a"));
+
+   _mongocrypt_buffer_cleanup (&key);
+   _mongocrypt_buffer_cleanup (&in);
+   _mongocrypt_buffer_cleanup (&out);
+
+   _mongocrypt_buffer_copy_from_hex (&key, "92faa793d717675e2be804584a8a98252083fe6bf16010546a92e2ef4bdd27fd");
+   _mongocrypt_buffer_copy_from_hex (&iv, "31164b2f661e41fed5df60bfcfa40baa");
+   _mongocrypt_buffer_copy_from_hex (&in, "379ddb78c30e5e4bf19dd81ae705796f");
+   _mongocrypt_buffer_init (&out);
+   _mongocrypt_buffer_resize (&out, 2000);
+   ASSERT_OK_STATUS (_native_crypto_aes_256_cbc_encrypt (&key, &iv, &in, &out, &bytes_written, status), status);
+   out.len = bytes_written;
+
+   /* The result of the previous encryption. */
+   _mongocrypt_buffer_copy_from_hex (&key, "92faa793d717675e2be804584a8a98252083fe6bf16010546a92e2ef4bdd27fd");
+   _mongocrypt_buffer_copy_from_hex (&iv, "31164b2f661e41fed5df60bfcfa40baa");
+   _mongocrypt_buffer_copy_from_hex (&in, "671DB60D464B09E9C3B03242DD29BDC5");
+   _mongocrypt_buffer_cleanup (&out);
+   _mongocrypt_buffer_init (&out);
+   _mongocrypt_buffer_resize (&out, 16);
+   ASSERT_OK_STATUS (_native_crypto_aes_256_cbc_decrypt (&key, &iv, &in, &out, &bytes_written, status), status);
+
+   printf ("result of decryption: %s", _mongocrypt_buffer_to_hex (&out));
+   
+}
+
+
 void
 _mongocrypt_tester_install_crypto (_mongocrypt_tester_t *tester)
 {
    INSTALL_TEST (_test_mcgrew);
    INSTALL_TEST (_test_roundtrip);
+   INSTALL_TEST (_test_primitives);
 }
