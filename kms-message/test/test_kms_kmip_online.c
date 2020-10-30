@@ -174,6 +174,11 @@ test_kmip (void)
       TEST_ASSERT (false);
    }
 
+      uint8_t* resp_buffer;
+   size_t resp_length;
+   kms_request_to_binary(resp, (char**&resp_buffer, &resp_length);
+
+   TEST_ASSERT(resp_length == KEYLEN);
 
 //    res_str = kms_response_get_body (res, NULL);
    TEST_TRACE ("<-- HTTP response:\n");
