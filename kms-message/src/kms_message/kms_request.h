@@ -91,6 +91,9 @@ kms_request_free_string (char *ptr);
 /* Finalize and obtain a plain HTTP request (no signing). */
 KMS_MSG_EXPORT (char *) kms_request_to_string (kms_request_t *request);
 
+KMS_MSG_EXPORT (void) kms_request_to_binary (kms_request_t *request, char** buffer, size_t* length);
+
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

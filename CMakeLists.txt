@@ -9,6 +9,8 @@ endif()
 
 set (CMAKE_C_STANDARD 99)
 
+set (CMAKE_EXPORT_COMPILE_COMMANDS 1)
+
 option (ENABLE_SHARED_BSON "Dynamically link libbson (default is static)" OFF)
 option (ENABLE_STATIC "Install static libraries" ON)
 option (ENABLE_PIC 

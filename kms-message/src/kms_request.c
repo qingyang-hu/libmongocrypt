@@ -812,6 +812,13 @@ kms_request_to_string (kms_request_t *request)
 }
 
 void
+kms_request_to_binary (kms_request_t *request, char** buffer, size_t* length) {
+   *buffer = request->payload->str;
+   *length = request->payload->len;
+}
+
+
+void
 kms_request_free_string (char *ptr)
 {
    free (ptr);
