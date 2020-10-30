@@ -20,6 +20,8 @@
 #include "kms_message_defines.h"
 #include "kms_request.h"
 #include "kms_request_opt.h"
+#include "kms_response_parser.h"
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,9 +40,18 @@ extern "C" {
 
 KMS_MSG_EXPORT (kms_request_t *)
 kms_kmip_request_encrypt_new (const char *id,
-                                const uint8_t *plaintext,
-                               size_t plaintext_len,
-                               const kms_request_opt_t *opt);
+                              const uint8_t *plaintext,
+                              size_t plaintext_len,
+                              const kms_request_opt_t *opt);
+
+
+KMS_MSG_EXPORT (kms_request_t *)
+kms_kmip_request_parse_encrypt_resp (
+                              const uint8_t *resp,
+                              size_t resp_len,
+                              const kms_request_opt_t *opt);
+
+
 
 /* Constructs an decrypt request for KMIP.
  *
@@ -55,9 +66,35 @@ kms_kmip_request_encrypt_new (const char *id,
 
 KMS_MSG_EXPORT (kms_request_t *)
 kms_kmip_request_unwrapkey_new (const char *id,
-                                 const uint8_t *ciphertext,
-                                 size_t ciphertext_len,
-                                 const kms_request_opt_t *opt);
+                                const uint8_t *ciphertext,
+                                size_t ciphertext_len,
+                                const kms_request_opt_t *opt);
+
+
+typedef struct _kms_kmip_response_parser_t kms_kmip_response_parser_t;
+
+
+KMS_MSG_EXPORT (kms_kmip_response_parser_t *)
+kms_kmip_response_parser_new (void);
+
+
+KMS_MSG_EXPORT (void)
+kms_kmip_response_parser_destroy (kms_kmip_response_parser_t *parser);
+
+KMS_MSG_EXPORT (size_t)
+kms_kmip_response_parser_wants_bytes (kms_kmip_response_parser_t *parser, int32_t max);
+
+KMS_MSG_EXPORT (size_t)
+kms_kmip_response_parser_feed (kms_kmip_response_parser_t *parser,
+                               uint8_t *buf,
+                               uint32_t len);
+
+
+KMS_MSG_EXPORT (const char*)
+kms_kmip_response_parser_error (kms_kmip_response_parser_t *parser);
+
+KMS_MSG_EXPORT (void)
+kms_kmip_response_get_response (kms_kmip_response_parser_t *parser, uint8_t** buffer, size_t* length);
 
 #ifdef __cplusplus
 } /* extern "C" */

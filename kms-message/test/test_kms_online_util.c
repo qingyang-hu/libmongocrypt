@@ -20,6 +20,9 @@
 
 #include <kms_message/kms_response_parser.h>
 
+#include <kms_message/kms_kmip_request.h>
+
+
 
 /* Create a TLS stream to a host. */
 mongoc_stream_t *
@@ -121,20 +124,21 @@ send_kms_request (kms_request_t *req, const char *host)
 }
 
 /* Helper to send an HTTP request and receive a response. */
-kms_response_t *
+kms_request_str_t*
 send_kms_binary_request (kms_request_t *req, const char *host)
 {
    mongoc_stream_t *tls_stream;
    int32_t socket_timeout_ms = 5000;
    ssize_t write_ret;
-   kms_response_parser_t *response_parser;
+   kms_kmip_response_parser_t *response_parser;
    int bytes_to_read;
    int bytes_read;
    uint8_t buf[1024];
-   kms_response_t *response;
    char* req_buffer;
    size_t req_length;
-
+      uint8_t* resp_buffer;
+   size_t resp_length;
+kms_request_str_t* response;
 
    tls_stream = connect_with_tls (host);
    kms_request_to_binary (req, &req_buffer, &req_length);
@@ -144,21 +148,21 @@ send_kms_binary_request (kms_request_t *req, const char *host)
    // TEST_ASSERT (write_ret == (ssize_t)req_length);
    TEST_ASSERT (write_ret >= 0);
 
-   response_parser = kms_response_parser_new ();
+   response_parser = kms_kmip_response_parser_new ();
    while ((bytes_to_read =
-              kms_response_parser_wants_bytes (response_parser, 1024)) > 0) {
+              kms_kmip_response_parser_wants_bytes (response_parser, 1024)) > 0) {
       bytes_read = (int) mongoc_stream_read (
          tls_stream, buf, bytes_to_read, 0, socket_timeout_ms);
-      if (!kms_response_parser_feed (response_parser, buf, bytes_read)) {
+      if (!kms_kmip_response_parser_feed (response_parser, buf, bytes_read)) {
          TEST_ERROR ("read failed: %s",
-                     kms_response_parser_error (response_parser));
+                     kms_kmip_response_parser_error (response_parser));
       }
    }
 
-   response = kms_response_parser_get_response (response_parser);
-   TEST_ASSERT (response);
+   kms_kmip_response_get_response (response_parser, &resp_buffer, &resp_length);
+   response = kms_request_str_new_from_chars((char*)resp_buffer, resp_length);
 
-   kms_response_parser_destroy (response_parser);
+   kms_kmip_response_parser_destroy (response_parser);
    mongoc_stream_destroy (tls_stream);
    return response;
 }

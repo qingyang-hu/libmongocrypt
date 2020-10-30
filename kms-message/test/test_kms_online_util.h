@@ -20,6 +20,8 @@
 #include <mongoc/mongoc.h>
 #include <kms_message/kms_request.h>
 #include <kms_message/kms_response.h>
+#include "../src/kms_request_str.h"
+
 
 mongoc_stream_t *
 connect_with_tls (const char *host);
@@ -27,7 +29,7 @@ connect_with_tls (const char *host);
 kms_response_t *
 send_kms_request (kms_request_t *req, const char *host);
 
-kms_response_t *
+kms_request_str_t *
 send_kms_binary_request (kms_request_t *req, const char *host);
 
 #endif /* TEST_KMS_ONLINE_UTIL_H */
