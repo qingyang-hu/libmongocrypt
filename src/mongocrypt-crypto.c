@@ -28,6 +28,17 @@
 #include "mongocrypt-private.h"
 #include "mongocrypt-status-private.h"
 
+static void
+_dump_hex (mongocrypt_binary_t *bin) {
+   size_t i;
+
+   printf ("[len=%d] ", (int) bin->len);
+   for (i = 0; i < bin->len; i++) {
+      printf ("%02x", bin->data[i]);
+   }
+   printf ("\n");
+}
+
 /* Crypto primitives. These either call the native built in crypto primitives or
  * user supplied hooks. */
 static bool
@@ -57,6 +68,14 @@ _crypto_aes_256_cbc_encrypt (_mongocrypt_crypto_t *crypto,
       _mongocrypt_buffer_to_binary (iv, &iv_bin);
       _mongocrypt_buffer_to_binary (out, &out_bin);
       _mongocrypt_buffer_to_binary (in, &in_bin);
+
+      printf ("[CRYPTOHOOK] Calling aes_256_cbc_encrypt\n");
+      printf ("- key:");
+      _dump_hex (&enc_key_bin);
+      printf ("- iv:");
+      _dump_hex (&iv_bin);
+      printf ("- in:");
+      _dump_hex (&in_bin);
 
       ret = crypto->aes_256_cbc_encrypt (crypto->ctx,
                                          &enc_key_bin,
@@ -94,6 +113,14 @@ _crypto_aes_256_cbc_decrypt (_mongocrypt_crypto_t *crypto,
       _mongocrypt_buffer_to_binary (iv, &iv_bin);
       _mongocrypt_buffer_to_binary (out, &out_bin);
       _mongocrypt_buffer_to_binary (in, &in_bin);
+
+      printf ("[CRYPTOHOOK] Calling aes_256_cbc_decrypt\n");
+      printf ("- key:");
+      _dump_hex (&enc_key_bin);
+      printf ("- iv:");
+      _dump_hex (&iv_bin);
+      printf ("- in:");
+      _dump_hex (&in_bin);
 
       ret = crypto->aes_256_cbc_decrypt (crypto->ctx,
                                          &enc_key_bin,
@@ -134,6 +161,12 @@ _crypto_hmac_sha_512 (_mongocrypt_crypto_t *crypto,
       _mongocrypt_buffer_to_binary (out, &out_bin);
       _mongocrypt_buffer_to_binary (in, &in_bin);
 
+      printf ("[CRYPTOHOOK] Calling hmac_sha_512\n");
+      printf ("- key:");
+      _dump_hex (&hmac_key_bin);
+      printf ("- in:");
+      _dump_hex (&in_bin);
+
       ret = crypto->hmac_sha_512 (
          crypto->ctx, &hmac_key_bin, &in_bin, &out_bin, status);
       return ret;
@@ -157,6 +190,8 @@ _crypto_random (_mongocrypt_crypto_t *crypto,
       mongocrypt_binary_t out_bin;
 
       _mongocrypt_buffer_to_binary (out, &out_bin);
+      printf ("[CRYPTOHOOK] Calling random\n");
+      printf ("- count: %d\n", (int) count);
       return crypto->random (crypto->ctx, &out_bin, count, status);
    }
    return _native_crypto_random (out, count, status);

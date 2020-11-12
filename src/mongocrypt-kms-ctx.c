@@ -34,6 +34,28 @@
 #define DEFAULT_MAX_KMS_BYTE_REQUEST 1024
 #define SHA256_LEN 32
 
+static void
+_dump_hex (const char* data, size_t len) {
+   size_t i;
+
+   printf ("[len=%d] ", (int) len);
+   for (i = 0; i < len; i++) {
+      printf ("%02x", data[i]);
+   }
+   printf ("\n");
+}
+
+static void
+_dump_hex_bin (mongocrypt_binary_t *bin) {
+   size_t i;
+
+   printf ("[len=%d] ", (int) bin->len);
+   for (i = 0; i < bin->len; i++) {
+      printf ("%02x", bin->data[i]);
+   }
+   printf ("\n");
+}
+
 static bool
 _sha256 (void *ctx, const char *input, size_t len, unsigned char *hash_out)
 {
@@ -50,6 +72,9 @@ _sha256 (void *ctx, const char *input, size_t len, unsigned char *hash_out)
    out->data = hash_out;
    out->len = SHA256_LEN;
 
+   printf ("[CRYPTOHOOK] Calling sha_256\n");
+   printf ("- in:");
+   _dump_hex (input, len);
    ret = crypto->sha_256 (crypto->ctx, plaintext, out, status);
 
    mongocrypt_status_destroy (status);
@@ -83,6 +108,11 @@ _sha256_hmac (void *ctx,
    out->data = hash_out;
    out->len = SHA256_LEN;
 
+   printf ("[CRYPTOHOOK] Calling hmac_sha_256\n");
+   printf ("- key:");
+   _dump_hex (key_input, key_len);
+   printf ("- in:");
+   _dump_hex (input, len);
    ret = crypto->hmac_sha_256 (crypto->ctx, key, plaintext, out, status);
 
    mongocrypt_status_destroy (status);
@@ -1097,6 +1127,12 @@ _sign_rsaes_pkcs1_v1_5_trampoline (void *ctx,
    input_bin.len = (uint32_t) input_len;
    output_bin.data = (uint8_t *) signature_out;
    output_bin.len = RSAES_PKCS1_V1_5_SIGNATURE_LEN;
+
+   printf ("[CRYPTOHOOK] Calling sign_rsaes_pkcs1_v1_5\n");
+   printf ("- key:");
+   _dump_hex_bin (&private_key_bin);
+   printf ("- in:");
+   _dump_hex_bin (&input_bin);
 
    ret = crypt_opts->sign_rsaes_pkcs1_v1_5 (
       crypt_opts->sign_ctx, &private_key_bin, &input_bin, &output_bin, status);
