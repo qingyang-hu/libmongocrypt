@@ -29,14 +29,14 @@
 #include "mongocrypt-status-private.h"
 
 static void
-_dump_hex (mongocrypt_binary_t *bin) {
+_dump_hex (bson_string_t *str, const _mongocrypt_buffer_t *buf) {
    size_t i;
 
-   printf ("[len=%d] ", (int) bin->len);
-   for (i = 0; i < bin->len; i++) {
-      printf ("%02x", bin->data[i]);
+   bson_string_append_printf (str, "[len=%d] ", (int) buf->len);
+   for (i = 0; i < buf->len; i++) {
+      bson_string_append_printf (str, "%02x", buf->data[i]);
    }
-   printf ("\n");
+   bson_string_append_printf (str, "\n");
 }
 
 /* Crypto primitives. These either call the native built in crypto primitives or
@@ -50,6 +50,8 @@ _crypto_aes_256_cbc_encrypt (_mongocrypt_crypto_t *crypto,
                              uint32_t *bytes_written,
                              mongocrypt_status_t *status)
 {
+   bson_string_t *log_msg;
+
    if (enc_key->len != MONGOCRYPT_ENC_KEY_LEN) {
       CLIENT_ERR ("invalid encryption key length");
       return false;
@@ -60,6 +62,16 @@ _crypto_aes_256_cbc_encrypt (_mongocrypt_crypto_t *crypto,
       return false;
    }
 
+   log_msg = bson_string_new ("[CRYPTOHOOK] Calling aes_256_cbc_encrypt\n");
+   bson_string_append_printf (log_msg, "- key: ");
+   _dump_hex (log_msg, enc_key);
+   bson_string_append_printf (log_msg, "- iv: ");
+   _dump_hex (log_msg, iv);
+   bson_string_append_printf (log_msg, "- in: ");
+   _dump_hex (log_msg, in);
+   _mongocrypt_log (crypto->log, MONGOCRYPT_LOG_LEVEL_INFO, "%s", log_msg->str);
+   bson_string_free (log_msg, true);
+
    if (crypto->hooks_enabled) {
       mongocrypt_binary_t enc_key_bin, iv_bin, out_bin, in_bin;
       bool ret;
@@ -68,14 +80,6 @@ _crypto_aes_256_cbc_encrypt (_mongocrypt_crypto_t *crypto,
       _mongocrypt_buffer_to_binary (iv, &iv_bin);
       _mongocrypt_buffer_to_binary (out, &out_bin);
       _mongocrypt_buffer_to_binary (in, &in_bin);
-
-      printf ("[CRYPTOHOOK] Calling aes_256_cbc_encrypt\n");
-      printf ("- key:");
-      _dump_hex (&enc_key_bin);
-      printf ("- iv:");
-      _dump_hex (&iv_bin);
-      printf ("- in:");
-      _dump_hex (&in_bin);
 
       ret = crypto->aes_256_cbc_encrypt (crypto->ctx,
                                          &enc_key_bin,
@@ -100,10 +104,22 @@ _crypto_aes_256_cbc_decrypt (_mongocrypt_crypto_t *crypto,
                              uint32_t *bytes_written,
                              mongocrypt_status_t *status)
 {
+   bson_string_t *log_msg;
    if (enc_key->len != MONGOCRYPT_ENC_KEY_LEN) {
       CLIENT_ERR ("invalid encryption key length");
       return false;
    }
+
+   log_msg = bson_string_new ("");
+   bson_string_append_printf (log_msg, "[CRYPTOHOOK] Calling aes_256_cbc_decrypt\n");
+   bson_string_append_printf (log_msg, "- key:");
+   _dump_hex (log_msg, enc_key);
+   bson_string_append_printf (log_msg, "- iv:");
+   _dump_hex (log_msg, iv);
+   bson_string_append_printf (log_msg, "- in:");
+   _dump_hex (log_msg, in);
+   _mongocrypt_log (crypto->log, MONGOCRYPT_LOG_LEVEL_INFO, "%s", log_msg->str);
+   bson_string_free (log_msg, true);
 
    if (crypto->hooks_enabled) {
       mongocrypt_binary_t enc_key_bin, iv_bin, out_bin, in_bin;
@@ -113,14 +129,6 @@ _crypto_aes_256_cbc_decrypt (_mongocrypt_crypto_t *crypto,
       _mongocrypt_buffer_to_binary (iv, &iv_bin);
       _mongocrypt_buffer_to_binary (out, &out_bin);
       _mongocrypt_buffer_to_binary (in, &in_bin);
-
-      printf ("[CRYPTOHOOK] Calling aes_256_cbc_decrypt\n");
-      printf ("- key:");
-      _dump_hex (&enc_key_bin);
-      printf ("- iv:");
-      _dump_hex (&iv_bin);
-      printf ("- in:");
-      _dump_hex (&in_bin);
 
       ret = crypto->aes_256_cbc_decrypt (crypto->ctx,
                                          &enc_key_bin,
@@ -143,6 +151,7 @@ _crypto_hmac_sha_512 (_mongocrypt_crypto_t *crypto,
                       _mongocrypt_buffer_t *out,
                       mongocrypt_status_t *status)
 {
+   bson_string_t *log_msg;
    if (hmac_key->len != MONGOCRYPT_MAC_KEY_LEN) {
       CLIENT_ERR ("invalid hmac key length");
       return false;
@@ -153,19 +162,22 @@ _crypto_hmac_sha_512 (_mongocrypt_crypto_t *crypto,
       return false;
    }
 
+   log_msg = bson_string_new ("");
+   bson_string_append_printf (log_msg, "[CRYPTOHOOK] Calling hmac_sha_512\n");
+   bson_string_append_printf (log_msg, "- key:");
+   _dump_hex (log_msg, hmac_key);
+   bson_string_append_printf (log_msg, "- in:");
+   _dump_hex (log_msg, in);
+   _mongocrypt_log (crypto->log, MONGOCRYPT_LOG_LEVEL_INFO, "%s", log_msg->str);
+   bson_string_free (log_msg, true);
+
    if (crypto->hooks_enabled) {
       mongocrypt_binary_t hmac_key_bin, out_bin, in_bin;
       bool ret;
-
+      
       _mongocrypt_buffer_to_binary (hmac_key, &hmac_key_bin);
       _mongocrypt_buffer_to_binary (out, &out_bin);
       _mongocrypt_buffer_to_binary (in, &in_bin);
-
-      printf ("[CRYPTOHOOK] Calling hmac_sha_512\n");
-      printf ("- key:");
-      _dump_hex (&hmac_key_bin);
-      printf ("- in:");
-      _dump_hex (&in_bin);
 
       ret = crypto->hmac_sha_512 (
          crypto->ctx, &hmac_key_bin, &in_bin, &out_bin, status);
@@ -181,17 +193,22 @@ _crypto_random (_mongocrypt_crypto_t *crypto,
                 uint32_t count,
                 mongocrypt_status_t *status)
 {
+   bson_string_t *log_msg;
    if (out->len != count) {
       CLIENT_ERR ("out does not contain %u bytes", count);
       return false;
    }
 
+   log_msg = bson_string_new ("");
+   bson_string_append_printf (log_msg, "[CRYPTOHOOK] Calling random\n");
+   bson_string_append_printf (log_msg, "- count: %d\n", (int) count);
+   _mongocrypt_log (crypto->log, MONGOCRYPT_LOG_LEVEL_INFO, "%s", log_msg->str);
+   bson_string_free (log_msg, true);
+
    if (crypto->hooks_enabled) {
       mongocrypt_binary_t out_bin;
 
       _mongocrypt_buffer_to_binary (out, &out_bin);
-      printf ("[CRYPTOHOOK] Calling random\n");
-      printf ("- count: %d\n", (int) count);
       return crypto->random (crypto->ctx, &out_bin, count, status);
    }
    return _native_crypto_random (out, count, status);

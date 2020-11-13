@@ -35,25 +35,25 @@
 #define SHA256_LEN 32
 
 static void
-_dump_hex (const char* data, size_t len) {
+_dump_hex (bson_string_t* str, const char* data, size_t len) {
    size_t i;
 
-   printf ("[len=%d] ", (int) len);
+   bson_string_append_printf (str, "[len=%d] ", (int) len);
    for (i = 0; i < len; i++) {
-      printf ("%02x", data[i]);
+      bson_string_append_printf (str, "%02x", data[i]);
    }
-   printf ("\n");
+   bson_string_append_printf (str, "\n");
 }
 
 static void
-_dump_hex_bin (mongocrypt_binary_t *bin) {
+_dump_hex_bin (bson_string_t* str, mongocrypt_binary_t *bin) {
    size_t i;
 
-   printf ("[len=%d] ", (int) bin->len);
+   bson_string_append_printf (str, "[len=%d] ", (int) bin->len);
    for (i = 0; i < bin->len; i++) {
-      printf ("%02x", bin->data[i]);
+      bson_string_append_printf (str, "%02x", bin->data[i]);
    }
-   printf ("\n");
+   bson_string_append_printf (str, "\n");
 }
 
 static bool
@@ -63,6 +63,7 @@ _sha256 (void *ctx, const char *input, size_t len, unsigned char *hash_out)
    mongocrypt_status_t *status;
    _mongocrypt_crypto_t *crypto = (_mongocrypt_crypto_t *) ctx;
    mongocrypt_binary_t *plaintext, *out;
+   bson_string_t *log_msg;
 
    status = mongocrypt_status_new ();
    plaintext =
@@ -72,10 +73,17 @@ _sha256 (void *ctx, const char *input, size_t len, unsigned char *hash_out)
    out->data = hash_out;
    out->len = SHA256_LEN;
 
-   printf ("[CRYPTOHOOK] Calling sha_256\n");
-   printf ("- in:");
-   _dump_hex (input, len);
+   log_msg = bson_string_new ("");
+   bson_string_append_printf (log_msg, "[CRYPTOHOOK] Calling sha_256\n");
+   bson_string_append_printf (log_msg, "- in:");
+   _dump_hex (log_msg, input, len);
+   _mongocrypt_log (crypto->log, MONGOCRYPT_LOG_LEVEL_INFO, "%s", log_msg->str);
+   bson_string_free (log_msg, true);
    ret = crypto->sha_256 (crypto->ctx, plaintext, out, status);
+
+   if (!ret) {
+      _mongocrypt_log (crypto->log, MONGOCRYPT_LOG_LEVEL_INFO, "sha_256 error: %s", mongocrypt_status_message (status, NULL));
+   }
 
    mongocrypt_status_destroy (status);
    mongocrypt_binary_destroy (plaintext);
@@ -95,6 +103,7 @@ _sha256_hmac (void *ctx,
    _mongocrypt_crypto_t *crypto = (_mongocrypt_crypto_t *) ctx;
    mongocrypt_binary_t *key, *plaintext, *out;
    bool ret;
+   bson_string_t *log_msg;
 
    (void) crypto;
 
@@ -108,12 +117,19 @@ _sha256_hmac (void *ctx,
    out->data = hash_out;
    out->len = SHA256_LEN;
 
-   printf ("[CRYPTOHOOK] Calling hmac_sha_256\n");
-   printf ("- key:");
-   _dump_hex (key_input, key_len);
-   printf ("- in:");
-   _dump_hex (input, len);
+   log_msg = bson_string_new ("");
+   bson_string_append_printf (log_msg, "[CRYPTOHOOK] Calling hmac_sha_256\n");
+   bson_string_append_printf (log_msg, "- key:");
+   _dump_hex (log_msg, key_input, key_len);
+   bson_string_append_printf (log_msg, "- in:");
+   _dump_hex (log_msg, input, len);
+   _mongocrypt_log (crypto->log, MONGOCRYPT_LOG_LEVEL_INFO, "%s", log_msg->str);
+   bson_string_free (log_msg, true);
    ret = crypto->hmac_sha_256 (crypto->ctx, key, plaintext, out, status);
+
+   if (!ret) {
+      _mongocrypt_log (crypto->log, MONGOCRYPT_LOG_LEVEL_INFO, "sha_256 error: %s", mongocrypt_status_message (status, NULL));
+   }
 
    mongocrypt_status_destroy (status);
    mongocrypt_binary_destroy (key);
@@ -1103,6 +1119,11 @@ fail:
 
 #define RSAES_PKCS1_V1_5_SIGNATURE_LEN 256
 
+typedef struct  {
+   _mongocrypt_opts_t *opts;
+   _mongocrypt_log_t *log;
+} opts_and_log_t;
+
 /* This is the form of the callback that KMS message calls. */
 bool
 _sign_rsaes_pkcs1_v1_5_trampoline (void *ctx,
@@ -1112,15 +1133,18 @@ _sign_rsaes_pkcs1_v1_5_trampoline (void *ctx,
                                    size_t input_len,
                                    unsigned char *signature_out)
 {
+   opts_and_log_t *opts_and_log;
    _mongocrypt_opts_t *crypt_opts;
    mongocrypt_binary_t private_key_bin;
    mongocrypt_binary_t input_bin;
    mongocrypt_binary_t output_bin;
    mongocrypt_status_t *status;
    bool ret;
+   bson_string_t *log_msg;
 
    status = mongocrypt_status_new ();
-   crypt_opts = (_mongocrypt_opts_t *) ctx;
+   opts_and_log = (opts_and_log_t *) ctx;
+   crypt_opts = opts_and_log->opts;
    private_key_bin.data = (uint8_t *) private_key;
    private_key_bin.len = (uint32_t) private_key_len;
    input_bin.data = (uint8_t *) input;
@@ -1128,15 +1152,23 @@ _sign_rsaes_pkcs1_v1_5_trampoline (void *ctx,
    output_bin.data = (uint8_t *) signature_out;
    output_bin.len = RSAES_PKCS1_V1_5_SIGNATURE_LEN;
 
-   printf ("[CRYPTOHOOK] Calling sign_rsaes_pkcs1_v1_5\n");
-   printf ("- key:");
-   _dump_hex_bin (&private_key_bin);
-   printf ("- in:");
-   _dump_hex_bin (&input_bin);
+   log_msg = bson_string_new ("");
+   bson_string_append_printf (log_msg, "[CRYPTOHOOK] Calling sign_rsaes_pkcs1_v1_5\n");
+   bson_string_append_printf (log_msg, "- key:");
+   _dump_hex_bin (log_msg, &private_key_bin);
+   bson_string_append_printf (log_msg, "- in:");
+   _dump_hex_bin (log_msg, &input_bin);
+   _mongocrypt_log (opts_and_log->log, MONGOCRYPT_LOG_LEVEL_INFO, "%s", log_msg->str);
+   bson_string_free (log_msg, true);
 
    ret = crypt_opts->sign_rsaes_pkcs1_v1_5 (
       crypt_opts->sign_ctx, &private_key_bin, &input_bin, &output_bin, status);
    /* TODO: MONGOCRYPT-257 status is swallowed. */
+
+   if (!ret) {
+      _mongocrypt_log (opts_and_log->log, MONGOCRYPT_LOG_LEVEL_INFO, "[CRYPTOHOOK] sign_rsaes_pkcs1_v1_5 failed: %s", mongocrypt_status_message (status, NULL));
+   }
+
    mongocrypt_status_destroy (status);
    return ret;
 }
@@ -1150,6 +1182,7 @@ _mongocrypt_kms_ctx_init_gcp_auth (mongocrypt_kms_ctx_t *kms,
    kms_request_opt_t *opt = NULL;
    mongocrypt_status_t *status;
    _mongocrypt_endpoint_t *auth_endpoint;
+   opts_and_log_t opts_and_log;
    char *scope = NULL;
    char *audience = NULL;
    const char *host;
@@ -1159,6 +1192,9 @@ _mongocrypt_kms_ctx_init_gcp_auth (mongocrypt_kms_ctx_t *kms,
    _init_common (kms, log, MONGOCRYPT_KMS_GCP_OAUTH);
    status = kms->status;
    auth_endpoint = crypt_opts->kms_provider_gcp.endpoint;
+
+   opts_and_log.opts = crypt_opts;
+   opts_and_log.log = log;
 
    if (auth_endpoint) {
       kms->endpoint = bson_strdup (auth_endpoint->host_and_port);
@@ -1184,7 +1220,7 @@ _mongocrypt_kms_ctx_init_gcp_auth (mongocrypt_kms_ctx_t *kms,
    kms_request_opt_set_provider (opt, KMS_REQUEST_PROVIDER_GCP);
    if (crypt_opts->sign_rsaes_pkcs1_v1_5) {
       kms_request_opt_set_crypto_hook_sign_rsaes_pkcs1_v1_5 (
-         opt, _sign_rsaes_pkcs1_v1_5_trampoline, crypt_opts);
+         opt, _sign_rsaes_pkcs1_v1_5_trampoline, &opts_and_log);
    }
    kms->req = kms_gcp_request_oauth_new (
       host,

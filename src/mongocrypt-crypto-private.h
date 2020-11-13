@@ -18,6 +18,7 @@
 #define MONGOCRYPT_CRYPTO_PRIVATE_H
 
 #include "mongocrypt.h"
+#include "mongocrypt-log-private.h"
 #include "mongocrypt-buffer-private.h"
 
 #define MONGOCRYPT_KEY_LEN 96
@@ -38,6 +39,7 @@ typedef struct {
    mongocrypt_hmac_fn hmac_sha_256;
    mongocrypt_hash_fn sha_256;
    void *ctx;
+   _mongocrypt_log_t *log;
 } _mongocrypt_crypto_t;
 
 uint32_t

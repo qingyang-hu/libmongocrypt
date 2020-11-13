@@ -396,6 +396,7 @@ mongocrypt_init (mongocrypt_t *crypt)
 
 #endif
    }
+   crypt->crypto->log = &crypt->log;
    return true;
 }
 
