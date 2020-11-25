@@ -26,6 +26,8 @@ if [ "$OS" == "Windows_NT" ]; then
 
     # Make dotnet happy over ssh
     export DOTNET_CLI_HOME=$(cygpath -w "${evergreen_root}/dotnet_home")
+else
+    export PATH=$PATH:/usr/share/dotnet
 fi
 
 "$dotnet_tool" build -c Release libmongocrypt/cmake-build/bindings/cs/cs.sln
