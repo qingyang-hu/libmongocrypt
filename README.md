@@ -125,6 +125,7 @@ Do the following when releasing:
 - Commit and push.
 - Create the release from the GitHub releases page from the new tag.
 - Submit a PR to update the Homebrew package https://github.com/mongodb/homebrew-brew/blob/master/Formula/libmongocrypt.rb
+- Notify the Debian maintainer to perform a release. The Debian release can be done at any point after, as it will branch off of the commit tag.
 
 ## Installing libmongocrypt From Distribution Packages ##
 Distribution packages (i.e., .deb/.rpm) are built and published for several Linux distributions.  The installation of these packages for supported platforms is documented here.
