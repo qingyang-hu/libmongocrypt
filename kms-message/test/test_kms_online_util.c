@@ -26,7 +26,7 @@
 
 /* Create a TLS stream to a host. */
 mongoc_stream_t *
-connect_with_tls (const char *host)
+connect_with_tls (const char *host, const char* port)
 {
    mongoc_stream_t *stream;
    mongoc_socket_t *sock = NULL;
@@ -42,7 +42,7 @@ connect_with_tls (const char *host)
    hints.ai_flags = 0;
    hints.ai_protocol = 0;
 
-   s = getaddrinfo (host, "5696", &hints, &result);
+   s = getaddrinfo (host, port, &hints, &result);
    TEST_ASSERT (s == 0);
 
    for (rp = result; rp; rp = rp->ai_next) {
@@ -71,11 +71,16 @@ connect_with_tls (const char *host)
 
    stream = mongoc_stream_socket_new (sock);
    TEST_ASSERT (stream);
+
    mongoc_ssl_opt_t opts;
-   memset(&opts, 0, sizeof(opts));
-   // opts.ca_file = "/home/mark/projects/kmip/test_data/ca.pem";
-   opts.weak_cert_validation = true;
-   opts.allow_invalid_hostname = true;
+   memcpy(&opts, mongoc_ssl_opt_get_default(), sizeof(opts) );
+
+   // Disable TLS validation when testing against KMIP since it wil be using non-public certs
+   if( strcmp(port, "5696")==0) {
+      // opts.ca_file = "/home/mark/projects/kmip/test_data/ca.pem";
+      opts.weak_cert_validation = true;
+      opts.allow_invalid_hostname = true;
+   }
 
    return mongoc_stream_tls_new_with_hostname (
       stream, host, (mongoc_ssl_opt_t *) &opts, 1);
@@ -95,7 +100,7 @@ send_kms_request (kms_request_t *req, const char *host)
    uint8_t buf[1024];
    kms_response_t *response;
 
-   tls_stream = connect_with_tls (host);
+   tls_stream = connect_with_tls (host, "443");
    req_str = kms_request_to_string (req);
 
    write_ret = mongoc_stream_write (
@@ -136,11 +141,11 @@ send_kms_binary_request (kms_request_t *req, const char *host)
    uint8_t buf[1024];
    char* req_buffer;
    size_t req_length;
-      uint8_t* resp_buffer;
+   uint8_t* resp_buffer;
    size_t resp_length;
-kms_request_str_t* response;
+   kms_request_str_t* response;
 
-   tls_stream = connect_with_tls (host);
+   tls_stream = connect_with_tls (host, "5696");
    kms_request_to_binary (req, &req_buffer, &req_length);
 
    write_ret = mongoc_stream_write (

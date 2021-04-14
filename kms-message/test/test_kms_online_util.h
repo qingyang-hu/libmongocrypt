@@ -24,7 +24,7 @@
 
 
 mongoc_stream_t *
-connect_with_tls (const char *host);
+connect_with_tls (const char *host, const char *port);
 
 kms_response_t *
 send_kms_request (kms_request_t *req, const char *host);

@@ -606,6 +606,8 @@ kms_request_t *
 kms_kmip_request_encrypt_new (const char *id,
                               const uint8_t *plaintext,
                               size_t plaintext_len,
+                              const uint8_t *iv_nonce,
+                              size_t iv_nonce_len,
                               const kms_request_opt_t *opt)
 {
    kms_request_t *req;
@@ -618,8 +620,7 @@ kms_kmip_request_encrypt_new (const char *id,
       goto done;
    }
 
-
-   // Write an encyption request
+   // Write an encryption request
 
    // <RequestMessage>
    //   <RequestHeader>
@@ -634,9 +635,12 @@ kms_kmip_request_encrypt_new (const char *id,
    //     <RequestPayload>
    //       <UniqueIdentifier type="TextString" value="1"/>
    //       <CryptographicParameters>
-   //         <BlockCipherMode type="Enumeration" value="ECB"/>
+   //         <BlockCipherMode type="Enumeration" value="CBC"/>
+   //         <PaddingMethod type="Enumeration" value="None"/>
    //       </CryptographicParameters>
    //       <Data type="ByteString" value="01020304050607080910111213141516"/>
+   //       <IVCounterNonce type="ByteString"
+   //       value="01020304050607080910111213141516"/>
    //     </RequestPayload>
    //   </BatchItem>
    // </RequestMessage>
@@ -654,9 +658,12 @@ kms_kmip_request_encrypt_new (const char *id,
    begin_struct (writer, TAG_RequestPayload);
    write_string (writer, TAG_UniqueIdentifier, id, strlen (id));
    begin_struct (writer, TAG_CryptographicParameters);
-   write_enumeration (writer, TAG_BlockCipherMode, 2); // ECB
+   write_enumeration (writer, TAG_BlockCipherMode, 1); // CBC
+   write_enumeration (writer, TAG_PaddingMethod, 1);   // None
    close_struct (writer);
    write_bytes (writer, TAG_Data, (const char *) plaintext, plaintext_len);
+   write_bytes (
+      writer, TAG_IVCounterNonce, (const char *) iv_nonce, iv_nonce_len);
    close_struct (writer);
    close_struct (writer);
    close_struct (writer);
@@ -675,17 +682,231 @@ done:
    return req;
 }
 
+
 kms_request_t *
-kms_kmip_request_unwrapkey_new (const char *id,
-                                const uint8_t *ciphertext,
-                                size_t ciphertext_len,
-                                const kms_request_opt_t *opt)
+kms_kmip_request_decrypt_new (const char *id,
+                              const uint8_t *ciphertext,
+                              size_t ciphertext_len,
+                              const uint8_t *iv_nonce,
+                              size_t iv_nonce_len,
+
+                              const kms_request_opt_t *opt)
 {
-   //        if (opt->provider != KMS_REQUEST_PROVIDER_KMIP) {
-   //       KMS_ERROR (req, "Expected KMS request with provider type: KMIP");
-   //       goto done;
-   //    }
-   return NULL;
+   kms_request_t *req;
+   kmip_writer_t *writer;
+   req = kms_request_new ("POST", "IGNORE", opt);
+   writer = kmip_writer_new ();
+
+   if (opt->provider != KMS_REQUEST_PROVIDER_KMIP) {
+      KMS_ERROR (req, "Expected KMS request with provider type: KMIP");
+      goto done;
+   }
+
+   // Write a decryption request
+
+   // <RequestMessage>
+   //   <RequestHeader>
+   //     <ProtocolVersion>
+   //       <ProtocolVersionMajor type="Integer" value="1"/>
+   //       <ProtocolVersionMinor type="Integer" value="4"/>
+   //     </ProtocolVersion>
+   //     <BatchCount type="Integer" value="1"/>
+   //   </RequestHeader>
+   //   <BatchItem>
+   //     <Operation type="Enumeration" value="Encrypt"/>
+   //     <RequestPayload>
+   //       <UniqueIdentifier type="TextString" value="1"/>
+   //       <CryptographicParameters>
+   //         <BlockCipherMode type="Enumeration" value="CBC"/>
+   //         <PaddingMethod type="Enumeration" value="None"/>
+   //       </CryptographicParameters>
+   //       <Data type="ByteString" value="01020304050607080910111213141516"/>
+   //       <IVCounterNonce type="ByteString"
+   //       value="01020304050607080910111213141516"/>
+   //     </RequestPayload>
+   //   </BatchItem>
+   // </RequestMessage>
+   // clang-format: off
+   begin_struct (writer, TAG_RequestMessage);
+   begin_struct (writer, TAG_RequestHeader);
+   begin_struct (writer, TAG_ProtocolVersion);
+   write_i32 (writer, TAG_ProtocolVersionMajor, 1);
+   write_i32 (writer, TAG_ProtocolVersionMinor, 2);
+   close_struct (writer);
+   write_i32 (writer, TAG_BatchCount, 1);
+   close_struct (writer);
+   begin_struct (writer, TAG_BatchItem);
+   write_enumeration (writer, TAG_Operation, 0x20);
+   begin_struct (writer, TAG_RequestPayload);
+   write_string (writer, TAG_UniqueIdentifier, id, strlen (id));
+   begin_struct (writer, TAG_CryptographicParameters);
+   write_enumeration (writer, TAG_BlockCipherMode, 1); // CBC
+   write_enumeration (writer, TAG_PaddingMethod, 1);   // None
+   close_struct (writer);
+   write_bytes (writer, TAG_Data, (const char *) ciphertext, ciphertext_len);
+   write_bytes (
+      writer, TAG_IVCounterNonce, (const char *) iv_nonce, iv_nonce_len);
+   close_struct (writer);
+   close_struct (writer);
+   close_struct (writer);
+   // clang-format: on
+
+
+   // Dump into payload
+   if (!kms_request_append_payload (
+          req, writer->buffer->str, writer->buffer->len)) {
+      goto done;
+   }
+
+done:
+   kmip_writer_destroy (writer);
+
+   return req;
+}
+
+
+kms_request_t *
+kms_kmip_request_mac_new (const char *id,
+                          const uint8_t *data,
+                          size_t data_len,
+                          const kms_request_opt_t *opt)
+{
+   kms_request_t *req;
+   kmip_writer_t *writer;
+   req = kms_request_new ("POST", "IGNORE", opt);
+   writer = kmip_writer_new ();
+
+   if (opt->provider != KMS_REQUEST_PROVIDER_KMIP) {
+      KMS_ERROR (req, "Expected KMS request with provider type: KMIP");
+      goto done;
+   }
+
+   // Write a decryption request
+
+   // <RequestMessage>
+   //   <RequestHeader>
+   //     <ProtocolVersion>
+   //       <ProtocolVersionMajor type="Integer" value="1"/>
+   //       <ProtocolVersionMinor type="Integer" value="4"/>
+   //     </ProtocolVersion>
+   //     <BatchCount type="Integer" value="1"/>
+   //   </RequestHeader>
+   //   <BatchItem>
+   //     <Operation type="Enumeration" value="MAC"/>
+   //     <RequestPayload>
+   //       <UniqueIdentifier type="TextString" value="1"/>
+   // TODO
+   //       <Data type="ByteString" value="01020304050607080910111213141516"/>
+   //     </RequestPayload>
+   //   </BatchItem>
+   // </RequestMessage>
+   // clang-format: off
+   begin_struct (writer, TAG_RequestMessage);
+   begin_struct (writer, TAG_RequestHeader);
+   begin_struct (writer, TAG_ProtocolVersion);
+   write_i32 (writer, TAG_ProtocolVersionMajor, 1);
+   write_i32 (writer, TAG_ProtocolVersionMinor, 2);
+   close_struct (writer);
+   write_i32 (writer, TAG_BatchCount, 1);
+   close_struct (writer);
+   begin_struct (writer, TAG_BatchItem);
+   write_enumeration (writer, TAG_Operation, 0x23);
+   begin_struct (writer, TAG_RequestPayload);
+   write_string (writer, TAG_UniqueIdentifier, id, strlen (id));
+   begin_struct (writer, TAG_CryptographicParameters);
+   write_enumeration (writer, TAG_CryptographicAlgorithm, 0xB); // HMACSHA256
+   close_struct (writer);
+   write_bytes (writer, TAG_Data, (const char *) data, data_len);
+   close_struct (writer);
+   close_struct (writer);
+   close_struct (writer);
+   // clang-format: on
+
+
+   // Dump into payload
+   if (!kms_request_append_payload (
+          req, writer->buffer->str, writer->buffer->len)) {
+      goto done;
+   }
+
+done:
+   kmip_writer_destroy (writer);
+
+   return req;
+}
+
+
+kms_request_t *
+kms_kmip_request_mac_verify_new (const char *id,
+                                 const uint8_t *data,
+                                 size_t data_len,
+                                 const uint8_t *mac_data,
+                                 size_t mac_data_len,
+                                 const kms_request_opt_t *opt)
+{
+   kms_request_t *req;
+   kmip_writer_t *writer;
+   req = kms_request_new ("POST", "IGNORE", opt);
+   writer = kmip_writer_new ();
+
+   if (opt->provider != KMS_REQUEST_PROVIDER_KMIP) {
+      KMS_ERROR (req, "Expected KMS request with provider type: KMIP");
+      goto done;
+   }
+
+   // Write a decryption request
+
+   // <RequestMessage>
+   //   <RequestHeader>
+   //     <ProtocolVersion>
+   //       <ProtocolVersionMajor type="Integer" value="1"/>
+   //       <ProtocolVersionMinor type="Integer" value="4"/>
+   //     </ProtocolVersion>
+   //     <BatchCount type="Integer" value="1"/>
+   //   </RequestHeader>
+   //   <BatchItem>
+   //     <Operation type="Enumeration" value="MACVerify"/>
+   //     <RequestPayload>
+   //       <UniqueIdentifier type="TextString" value="1"/>
+   // TODO
+   //       <Data type="ByteString" value="01020304050607080910111213141516"/>
+   //     </RequestPayload>
+   //   </BatchItem>
+   // </RequestMessage>
+   // clang-format: off
+   begin_struct (writer, TAG_RequestMessage);
+   begin_struct (writer, TAG_RequestHeader);
+   begin_struct (writer, TAG_ProtocolVersion);
+   write_i32 (writer, TAG_ProtocolVersionMajor, 1);
+   write_i32 (writer, TAG_ProtocolVersionMinor, 2);
+   close_struct (writer);
+   write_i32 (writer, TAG_BatchCount, 1);
+   close_struct (writer);
+   begin_struct (writer, TAG_BatchItem);
+   write_enumeration (writer, TAG_Operation, 0x24);
+   begin_struct (writer, TAG_RequestPayload);
+   write_string (writer, TAG_UniqueIdentifier, id, strlen (id));
+   begin_struct (writer, TAG_CryptographicParameters);
+   write_enumeration (writer, TAG_CryptographicAlgorithm, 0xB); // HMACSHA256
+   close_struct (writer);
+   write_bytes (writer, TAG_Data, (const char *) data, data_len);
+   write_bytes (writer, TAG_MACData, (const char *) mac_data, mac_data_len);
+   close_struct (writer);
+   close_struct (writer);
+   close_struct (writer);
+   // clang-format: on
+
+
+   // Dump into payload
+   if (!kms_request_append_payload (
+          req, writer->buffer->str, writer->buffer->len)) {
+      goto done;
+   }
+
+done:
+   kmip_writer_destroy (writer);
+
+   return req;
 }
 
 
@@ -1134,11 +1355,11 @@ kms_kmip_response_get_response (kms_kmip_response_parser_t *parser,
    *len = parser->raw_response->len;
 }
 
-
 kms_request_t *
-kms_kmip_request_parse_encrypt_resp (const uint8_t *resp,
-                                     size_t resp_len,
-                                     const kms_request_opt_t *opt)
+_kms_kmip_request_parse_generic_response (const uint8_t *resp,
+                                          size_t resp_len,
+                                          enum TAG_TYPE tag,
+                                          const kms_request_opt_t *opt)
 {
    kms_request_t *req;
    req = kms_request_new ("POST", "IGNORE", opt);
@@ -1180,13 +1401,102 @@ kms_kmip_request_parse_encrypt_resp (const uint8_t *resp,
    uint8_t *ptr;
    size_t len;
 
-   if (!kmip_reader_find_and_read_bytes (
-          response_payload, TAG_Data, &ptr, &len)) {
-      KMS_ERROR (req, "Failed to read Data in response");
+   if (!kmip_reader_find_and_read_bytes (response_payload, tag, &ptr, &len)) {
+      KMS_ERROR (req, "Failed to read Data tag in response");
       goto done;
    }
 
    kms_request_str_append_chars (req->payload, (char *) ptr, len);
+
+done:
+   kmip_reader_destroy (reader);
+
+   return req;
+}
+
+
+kms_request_t *
+kms_kmip_request_parse_encrypt_response (const uint8_t *resp,
+                                         size_t resp_len,
+                                         const kms_request_opt_t *opt)
+{
+   return _kms_kmip_request_parse_generic_response (
+      resp, resp_len, TAG_Data, opt);
+}
+
+
+kms_request_t *
+kms_kmip_request_parse_decrypt_response (const uint8_t *resp,
+                                         size_t resp_len,
+                                         const kms_request_opt_t *opt)
+{
+   return _kms_kmip_request_parse_generic_response (
+      resp, resp_len, TAG_Data, opt);
+}
+
+
+kms_request_t *
+kms_kmip_request_parse_mac_response (const uint8_t *resp,
+                                     size_t resp_len,
+                                     const kms_request_opt_t *opt)
+{
+   return _kms_kmip_request_parse_generic_response (
+      resp, resp_len, TAG_MACData, opt);
+}
+
+
+kms_request_t *
+kms_kmip_request_parse_mac_verify_response (const uint8_t *resp,
+                                            size_t resp_len,
+                                            const kms_request_opt_t *opt,
+                                            bool *valid)
+{
+   kms_request_t *req;
+   *valid = false;
+   req = kms_request_new ("POST", "IGNORE", opt);
+
+   kmip_reader_t *reader = kmip_reader_new ((uint8_t *) resp, resp_len);
+   kmip_reader_t *response_message;
+   kmip_reader_t *batch_item;
+   kmip_reader_t *response_payload;
+
+   response_message =
+      kmip_reader_find_and_get_struct_reader (reader, TAG_ResponseMessage);
+   if (!response_message) {
+      KMS_ERROR (req, "TAG_ResponseMessage not found");
+      goto done;
+   }
+   batch_item =
+      kmip_reader_find_and_get_struct_reader (response_message, TAG_BatchItem);
+
+   uint32_t result_status;
+   if (!kmip_reader_find_and_read_enum (
+          batch_item, TAG_ResultStatus, &result_status)) {
+      KMS_ERROR (req, "Expected TAG_ResultStatus");
+      goto done;
+   }
+
+   if (result_status != 0) {
+      // TODO - better error
+      KMS_ERROR (req, "Bad result status from KMIP");
+      goto done;
+   }
+
+   response_payload =
+      kmip_reader_find_and_get_struct_reader (batch_item, TAG_ResponsePayload);
+   if (!response_payload) {
+      KMS_ERROR (req, "TAG_ResponsePayload not found");
+      goto done;
+   }
+
+   uint32_t validity_indicator;
+   if (!kmip_reader_find_and_read_enum (
+          response_payload, TAG_ValidityIndicator, &validity_indicator)) {
+      KMS_ERROR (req, "Expected TAG_ValidityIndicator");
+      goto done;
+   }
+
+   *valid = (validity_indicator == 1);
 
 done:
    kmip_reader_destroy (reader);

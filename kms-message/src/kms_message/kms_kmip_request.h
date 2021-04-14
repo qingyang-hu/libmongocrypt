@@ -34,6 +34,8 @@ extern "C" {
  * - id: The id of the key to use
  * - plaintext: The plaintext key to encrypt.
  * - plaintext_len: The number of bytes of plaintext.
+ * - iv_nonce: The iv/nonce to use in encryption.
+ * - iv_nonce_len: The number of bytes of iv_nonce.
  * - opt: Additional options. This must have the KMIP provider set via
  * kms_request_opt_set_provider.
  */
@@ -42,11 +44,13 @@ KMS_MSG_EXPORT (kms_request_t *)
 kms_kmip_request_encrypt_new (const char *id,
                               const uint8_t *plaintext,
                               size_t plaintext_len,
+                               const uint8_t *iv_nonce,
+                              size_t iv_nonce_len,
                               const kms_request_opt_t *opt);
 
 
 KMS_MSG_EXPORT (kms_request_t *)
-kms_kmip_request_parse_encrypt_resp (
+kms_kmip_request_parse_encrypt_response (
                               const uint8_t *resp,
                               size_t resp_len,
                               const kms_request_opt_t *opt);
@@ -65,10 +69,51 @@ kms_kmip_request_parse_encrypt_resp (
  */
 
 KMS_MSG_EXPORT (kms_request_t *)
-kms_kmip_request_unwrapkey_new (const char *id,
+kms_kmip_request_decrypt_new (const char *id,
                                 const uint8_t *ciphertext,
                                 size_t ciphertext_len,
+                               const uint8_t *iv_nonce,
+                              size_t iv_nonce_len,
                                 const kms_request_opt_t *opt);
+
+
+KMS_MSG_EXPORT (kms_request_t *)
+kms_kmip_request_parse_decrypt_response (
+                              const uint8_t *resp,
+                              size_t resp_len,
+                              const kms_request_opt_t *opt);
+
+
+
+KMS_MSG_EXPORT (kms_request_t *)
+kms_kmip_request_mac_new (const char *id,
+                                const uint8_t *data,
+                                size_t data_len,
+                                const kms_request_opt_t *opt);
+
+
+KMS_MSG_EXPORT (kms_request_t *)
+kms_kmip_request_parse_mac_response (
+                              const uint8_t *resp,
+                              size_t resp_len,
+                              const kms_request_opt_t *opt);
+
+
+KMS_MSG_EXPORT (kms_request_t *)
+kms_kmip_request_mac_verify_new (const char *id,
+                                const uint8_t *data,
+                                size_t data_len,
+                                const uint8_t *mac_data,
+                                size_t mac_data_len,
+                                const kms_request_opt_t *opt);
+
+
+KMS_MSG_EXPORT (kms_request_t *)
+kms_kmip_request_parse_mac_verify_response (
+                              const uint8_t *resp,
+                              size_t resp_len,
+                              const kms_request_opt_t *opt,
+                              bool* valid);
 
 
 typedef struct _kms_kmip_response_parser_t kms_kmip_response_parser_t;

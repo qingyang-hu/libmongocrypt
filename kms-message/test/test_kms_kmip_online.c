@@ -108,19 +108,19 @@ static void test_response_parser()
 0x42, 0x00, 0x7d, 0x07,  0x00, 0x00, 0x00, 0x2b,  0x65, 0x72, 0x72, 0x6f,  0x72, 0x3a, 0x20, 0x4b,
 0x4d, 0x49, 0x50, 0x20,  0x52, 0x65, 0x73, 0x70,  0x6f, 0x6e, 0x73, 0x65,  0x20, 0x65, 0x72, 0x72,
 0x6f, 0x72, 0x3a, 0x20,  0x54, 0x68, 0x69, 0x6e,  0x67, 0x20, 0x6e, 0x6f,  0x74, 0x20, 0x66, 0x6f,
-0x75, 0x6e, 0x64, 0x00,  0x00, 0x00, 0x00, 0x00,                           
+0x75, 0x6e, 0x64, 0x00,  0x00, 0x00, 0x00, 0x00,
    };
    size_t negative_resp_len = sizeof(negative_resp);
 
-   kms_request_t* resp = kms_kmip_request_parse_encrypt_resp(negative_resp, negative_resp_len, NULL);
+   kms_request_t* resp = kms_kmip_request_parse_encrypt_response(negative_resp, negative_resp_len, NULL);
 
    if (kms_request_get_error (resp)) {
       printf ("error: %s\n", kms_request_get_error (resp));
       TEST_ASSERT (false);
    }
 
-   
-   kms_request_destroy (resp); 
+
+   kms_request_destroy (resp);
 }
 
 static void
@@ -158,6 +158,8 @@ test_kmip (void)
                                       test_env.id,
                                       key_data,
                                       KEYLEN,
+                                      key_data,
+                                      16, // AES CBC nonces are 16 bytes
                                       opt);
    TEST_ASSERT (req);
    if (kms_request_get_error (req)) {
@@ -167,30 +169,111 @@ test_kmip (void)
    TEST_TRACE ("--> KMIP request:\n");
    res = send_kms_binary_request (req, test_env.kms_host);
 
-   kms_request_t* resp = kms_kmip_request_parse_encrypt_resp((uint8_t*)res->str, res->len, NULL);
+   kms_request_t* resp = kms_kmip_request_parse_encrypt_response((uint8_t*)res->str, res->len, NULL);
 
    if (kms_request_get_error (resp)) {
       printf ("error: %s\n", kms_request_get_error (resp));
       TEST_ASSERT (false);
    }
 
-      uint8_t* resp_buffer;
+   uint8_t* resp_buffer;
    size_t resp_length;
-   kms_request_to_binary(resp, (char**&resp_buffer, &resp_length);
+   kms_request_to_binary(resp, (char**)&resp_buffer, &resp_length);
 
    TEST_ASSERT(resp_length == KEYLEN);
 
-//    res_str = kms_response_get_body (res, NULL);
-   TEST_TRACE ("<-- HTTP response:\n");
-//    res_bson =
-//       bson_new_from_json ((const uint8_t *) res_str, strlen (res_str), NULL);
-//    TEST_ASSERT (res_bson);
-//    TEST_ASSERT (bson_iter_init_find (&iter, res_bson, "ciphertext"));
-//    encrypted_raw =
-//       kms_message_b64_to_raw (bson_iter_utf8 (&iter, NULL), &encrypted_raw_len);
-//    TEST_ASSERT (encrypted_raw);
+   kms_request_destroy (req);
+   kms_request_str_destroy (res);
 
-   kms_request_destroy (req); 
+
+
+   req = kms_kmip_request_decrypt_new (
+                                      test_env.id,
+                                      resp_buffer,
+                                      resp_length,
+                                      key_data,
+                                      16, // AES CBC nonces are 16 bytes
+                                      opt);
+   TEST_ASSERT (req);
+   if (kms_request_get_error (req)) {
+      printf ("error: %s\n", kms_request_get_error (req));
+      TEST_ASSERT (false);
+   }
+   TEST_TRACE ("--> KMIP request:\n");
+   res = send_kms_binary_request (req, test_env.kms_host);
+
+   kms_request_t* resp_decrypt = kms_kmip_request_parse_decrypt_response((uint8_t*)res->str, res->len, NULL);
+
+   if (kms_request_get_error (resp_decrypt)) {
+      printf ("error: %s\n", kms_request_get_error (resp_decrypt));
+      TEST_ASSERT (false);
+   }
+
+   uint8_t* decrypt_resp_buffer;
+   size_t decrypt_resp_length;
+   kms_request_to_binary(resp_decrypt, (char**)&decrypt_resp_buffer, &decrypt_resp_length);
+
+   TEST_ASSERT(resp_length == KEYLEN);
+   TEST_ASSERT(memcmp(decrypt_resp_buffer, key_data, KEYLEN+1) == 0);
+
+   kms_request_destroy (req);
+   kms_request_str_destroy (res);
+
+
+   req = kms_kmip_request_mac_new (
+                                      test_env.id,
+                                      key_data,
+                                      KEYLEN,
+                                      opt);
+   TEST_ASSERT (req);
+   if (kms_request_get_error (req)) {
+      printf ("error: %s\n", kms_request_get_error (req));
+      TEST_ASSERT (false);
+   }
+   TEST_TRACE ("--> KMIP request:\n");
+   res = send_kms_binary_request (req, test_env.kms_host);
+
+   kms_request_t* resp_mac = kms_kmip_request_parse_mac_response((uint8_t*)res->str, res->len, NULL);
+
+   if (kms_request_get_error (resp_mac)) {
+      printf ("error: %s\n", kms_request_get_error (resp_mac));
+      TEST_ASSERT (false);
+   }
+
+   uint8_t* mac_resp_buffer;
+   size_t mac_resp_length;
+   kms_request_to_binary(resp_mac, (char**)&mac_resp_buffer, &mac_resp_length);
+
+   kms_request_destroy (req);
+   kms_request_str_destroy (res);
+
+
+   req = kms_kmip_request_mac_verify_new (
+                                      test_env.id,
+                                      key_data,
+                                      KEYLEN,
+                                      mac_resp_buffer,
+                                      mac_resp_length,
+                                      opt);
+   TEST_ASSERT (req);
+   if (kms_request_get_error (req)) {
+      printf ("error: %s\n", kms_request_get_error (req));
+      TEST_ASSERT (false);
+   }
+   TEST_TRACE ("--> KMIP request:\n");
+   res = send_kms_binary_request (req, test_env.kms_host);
+
+   bool valid = false;
+   kms_request_t* resp_mac_verify = kms_kmip_request_parse_mac_verify_response((uint8_t*)res->str, res->len, NULL, &valid);
+
+   if (kms_request_get_error (resp_mac_verify)) {
+      printf ("error: %s\n", kms_request_get_error (resp_mac_verify));
+      TEST_ASSERT (false);
+   }
+
+   TEST_ASSERT(valid == true);
+
+   kms_request_destroy (req);
    kms_request_str_destroy (res);
 
 //    /* Send a request to decrypt the encrypted key. */
