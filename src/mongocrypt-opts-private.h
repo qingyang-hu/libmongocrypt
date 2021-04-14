@@ -39,6 +39,12 @@ typedef struct {
 } _mongocrypt_opts_kms_provider_gcp_t;
 
 typedef struct {
+   char *encrypt_key_id;
+   char *mac_key_id;
+   _mongocrypt_endpoint_t *endpoint;
+} _mongocrypt_opts_kms_provider_kmip_t;
+
+typedef struct {
    char *secret_access_key;
    char *access_key_id;
    char *session_token;
@@ -58,6 +64,7 @@ typedef struct {
    _mongocrypt_opts_kms_provider_aws_t kms_provider_aws;
    _mongocrypt_opts_kms_provider_azure_t kms_provider_azure;
    _mongocrypt_opts_kms_provider_gcp_t kms_provider_gcp;
+   _mongocrypt_opts_kms_provider_kmip_t kms_provider_kmip;
    mongocrypt_hmac_fn sign_rsaes_pkcs1_v1_5;
    void *sign_ctx;
 } _mongocrypt_opts_t;

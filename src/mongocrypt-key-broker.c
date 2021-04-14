@@ -589,6 +589,8 @@ _mongocrypt_key_broker_add_doc (_mongocrypt_key_broker_t *kb,
             goto done;
          }
       }
+   } else if (kek_provider == MONGOCRYPT_KMS_PROVIDER_KMIP) {
+      #error - decrypt and mac_verify
    } else {
       _key_broker_fail_w_msg (kb, "unrecognized kms provider");
       goto done;
@@ -830,6 +832,8 @@ _mongocrypt_key_broker_kms_done (_mongocrypt_key_broker_t *kb)
       if (key_returned->doc->kek.kms_provider == MONGOCRYPT_KMS_PROVIDER_AWS ||
           key_returned->doc->kek.kms_provider ==
              MONGOCRYPT_KMS_PROVIDER_AZURE ||
+          key_returned->doc->kek.kms_provider ==
+             MONGOCRYPT_KMS_PROVIDER_KMIP ||
           key_returned->doc->kek.kms_provider == MONGOCRYPT_KMS_PROVIDER_GCP) {
          if (key_returned->decrypted) {
             return _key_broker_fail_w_msg (

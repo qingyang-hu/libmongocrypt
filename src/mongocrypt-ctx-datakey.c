@@ -175,6 +175,9 @@ _kms_start (mongocrypt_ctx_t *ctx)
          }
       }
       ctx->state = MONGOCRYPT_CTX_NEED_KMS;
+   } else if (ctx->opts.kek.kms_provider == MONGOCRYPT_KMS_PROVIDER_KMIP) {
+      #error TODO - add encrypt and mac support here
+      ctx->state = MONGOCRYPT_CTX_NEED_KMS;
    } else {
       _mongocrypt_ctx_fail_w_msg (ctx, "unsupported KMS provider");
       goto done;

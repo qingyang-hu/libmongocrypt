@@ -148,7 +148,36 @@ _mongocrypt_kek_parse_owned (const bson_t *bson,
                                              "keyVersion")) {
          goto done;
       }
-   } else {
+     } else if (0 == strcmp (kms_provider, "kmip")) {
+      kek->kms_provider = MONGOCRYPT_KMS_PROVIDER_KMIP;
+      if (!_mongocrypt_parse_required_endpoint (
+             bson,
+             "endpoint",
+             &kek->provider.kmip.endpoint,
+             status)) {
+         goto done;
+      }
+
+      if (!_mongocrypt_parse_required_utf8 (
+             bson, "encryptKeyId", &kek->provider.kmip.encrypt_key_id, status)) {
+         goto done;
+      }
+
+      if (!_mongocrypt_parse_optional_utf8 (
+             bson, "macKeyId", &kek->provider.kmip.mac_key_id, status)) {
+         goto done;
+      }
+
+      if (!_mongocrypt_check_allowed_fields (bson,
+                                             NULL,
+                                             status,
+                                             "endpoint",
+                                             "encryptKeyId",
+                                             "macKeyId"
+                                             )) {
+         goto done;
+      }
+    } else {
       CLIENT_ERR ("unrecognized KMS provider: %s", kms_provider);
       goto done;
    }
@@ -196,6 +225,14 @@ _mongocrypt_kek_append (const _mongocrypt_kek_t *kek,
          BSON_APPEND_UTF8 (
             bson, "endpoint", kek->provider.gcp.endpoint->host_and_port);
       }
+   } else if (kek->kms_provider == MONGOCRYPT_KMS_PROVIDER_KMIP) {
+      BSON_APPEND_UTF8 (bson, "provider", "kmip");
+      BSON_APPEND_UTF8 (bson,
+                        "endpoint",
+                        kek->provider.kmip.endpoint->host_and_port);
+      BSON_APPEND_UTF8 (bson, "encryptKeyId", kek->provider.kmip.encrypt_key_id);
+      BSON_APPEND_UTF8 (bson, "macKeyId", kek->provider.kmip.mac_key_id);
+
    } else {
       BSON_ASSERT (kek->kms_provider == MONGOCRYPT_KMS_PROVIDER_NONE);
    }
@@ -225,6 +262,12 @@ _mongocrypt_kek_copy_to (const _mongocrypt_kek_t *src, _mongocrypt_kek_t *dst)
          bson_strdup (src->provider.gcp.key_version);
       dst->provider.gcp.endpoint =
          _mongocrypt_endpoint_copy (src->provider.gcp.endpoint);
+   } else if (src->kms_provider == MONGOCRYPT_KMS_PROVIDER_KMIP) {
+      dst->provider.kmip.endpoint =
+         _mongocrypt_endpoint_copy (src->provider.kmip.endpoint);
+      dst->provider.kmip.encrypt_key_id = bson_strdup (src->provider.kmip.encrypt_key_id);
+      dst->provider.kmip.mac_key_id =
+         bson_strdup (src->provider.kmip.mac_key_id);
    } else {
       BSON_ASSERT (src->kms_provider == MONGOCRYPT_KMS_PROVIDER_NONE ||
                    src->kms_provider == MONGOCRYPT_KMS_PROVIDER_LOCAL);
@@ -250,6 +293,10 @@ _mongocrypt_kek_cleanup (_mongocrypt_kek_t *kek)
       bson_free (kek->provider.gcp.key_name);
       bson_free (kek->provider.gcp.key_version);
       _mongocrypt_endpoint_destroy (kek->provider.gcp.endpoint);
+   } else if (kek->kms_provider == MONGOCRYPT_KMS_PROVIDER_KMIP) {
+      _mongocrypt_endpoint_destroy (kek->provider.kmip.endpoint);
+      bson_free (kek->provider.kmip.encrypt_key_id);
+      bson_free (kek->provider.kmip.mac_key_id);
    } else {
       BSON_ASSERT (kek->kms_provider == MONGOCRYPT_KMS_PROVIDER_NONE ||
                    kek->kms_provider == MONGOCRYPT_KMS_PROVIDER_LOCAL);
