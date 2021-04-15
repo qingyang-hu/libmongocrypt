@@ -129,6 +129,17 @@ typedef struct {
    _mongocrypt_buffer_t decrypted_doc;
 } _mongocrypt_ctx_decrypt_t;
 
+enum KMIP_KMS_STATE {
+   KMIP_KMS_STATE_NONE = 0,
+   KMIP_KMS_STATE_DECRYPT_NEED_MAC_VERIFY,
+   KMIP_KMS_STATE_DECRYPT_NEED_DECRYPT,
+   KMIP_KMS_STATE_ENCRYPT_NEED_MAC,
+   KMIP_KMS_STATE_ENCRYPT_NEED_ENCRYPT,
+};
+
+typedef struct {
+   enum KMIP_KMS_STATE state;
+} _mongocrypt_ctx_datakey_kmip_t;
 
 typedef struct {
    mongocrypt_ctx_t parent;
@@ -137,6 +148,9 @@ typedef struct {
    _mongocrypt_buffer_t key_doc;
    _mongocrypt_buffer_t plaintext_key_material;
    _mongocrypt_buffer_t encrypted_key_material;
+   // union {
+      _mongocrypt_ctx_datakey_kmip_t kmip;
+   // }
 } _mongocrypt_ctx_datakey_t;
 
 

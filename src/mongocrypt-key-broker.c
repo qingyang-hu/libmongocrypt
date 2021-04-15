@@ -590,7 +590,31 @@ _mongocrypt_key_broker_add_doc (_mongocrypt_key_broker_t *kb,
          }
       }
    } else if (kek_provider == MONGOCRYPT_KMS_PROVIDER_KMIP) {
-      #error - decrypt and mac_verify
+//       if ( dkctx->kmip.state == KMIP_KMS_STATE_NONE ) {
+//           if (!_mongocrypt_kms_ctx_init_kmip_mac_verify (
+// &key_returned->kms,
+//                                                     &kb->crypt->opts,
+//                                                     key_doc,
+//                                                     &kb->crypt->log)) {
+//             mongocrypt_kms_ctx_status (&key_returned->kms, kb->status);
+//             _key_broker_fail (kb);
+//             goto done;
+//          }
+//        dkctx->kmip.state = KMIP_KMS_STATE_ENCRYPT_NEED_MAC_VERIFY;
+//       } else {
+//           if (!_mongocrypt_kms_ctx_init_kmip_decrypt (
+// &key_returned->kms,
+//                                                     &kb->crypt->opts,
+//                                                     key_doc,
+//                                                     &kb->crypt->log)) {
+//             mongocrypt_kms_ctx_status (&key_returned->kms, kb->status);
+//             _key_broker_fail (kb);
+//             goto done;
+//          }
+//        dkctx->kmip.state = KMIP_KMS_STATE_ENCRYPT_NEED_ENCRYPT;
+//       }
+
+
    } else {
       _key_broker_fail_w_msg (kb, "unrecognized kms provider");
       goto done;
