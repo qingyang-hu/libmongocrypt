@@ -83,6 +83,8 @@ typedef struct _key_returned_t {
 
    bool needs_auth;
 
+   bool kmip_state_need_mac_verify;
+
    struct _key_returned_t *next;
 } key_returned_t;
 

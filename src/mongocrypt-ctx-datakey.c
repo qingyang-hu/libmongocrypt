@@ -277,6 +277,7 @@ _kms_done (mongocrypt_ctx_t *ctx)
       const size_t mac_offset = 0;
       const size_t iv_offset = MAC_LENGTH;
       const size_t encrypted_offset = iv_offset + IV_LENGTH;
+
       memcpy(buffer.data + mac_offset, dkctx->kms.result.data, MAC_LENGTH);
       memcpy(buffer.data + iv_offset, dkctx->kmip.iv.data, IV_LENGTH);
       memcpy(buffer.data + encrypted_offset, dkctx->kmip.intermediate_key_material.data, dkctx->kmip.intermediate_key_material.len);

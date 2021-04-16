@@ -590,29 +590,35 @@ _mongocrypt_key_broker_add_doc (_mongocrypt_key_broker_t *kb,
          }
       }
    } else if (kek_provider == MONGOCRYPT_KMS_PROVIDER_KMIP) {
-//       if ( dkctx->kmip.state == KMIP_KMS_STATE_NONE ) {
-//           if (!_mongocrypt_kms_ctx_init_kmip_mac_verify (
-// &key_returned->kms,
-//                                                     &kb->crypt->opts,
-//                                                     key_doc,
-//                                                     &kb->crypt->log)) {
-//             mongocrypt_kms_ctx_status (&key_returned->kms, kb->status);
-//             _key_broker_fail (kb);
-//             goto done;
-//          }
-//        dkctx->kmip.state = KMIP_KMS_STATE_ENCRYPT_NEED_MAC_VERIFY;
-//       } else {
-//           if (!_mongocrypt_kms_ctx_init_kmip_decrypt (
-// &key_returned->kms,
-//                                                     &kb->crypt->opts,
-//                                                     key_doc,
-//                                                     &kb->crypt->log)) {
-//             mongocrypt_kms_ctx_status (&key_returned->kms, kb->status);
-//             _key_broker_fail (kb);
-//             goto done;
-//          }
-//        dkctx->kmip.state = KMIP_KMS_STATE_ENCRYPT_NEED_ENCRYPT;
-//       }
+      // TODO - we need to verify the MAC first
+      // to do this, we need a per-key state machine which the keybroker does not have yet.
+      // if ( key_returned->kmip_state_need_mac_verify == false ) {
+      //    key_returned->needs_auth = true;
+
+      //    //const size_t MAC_LENGTH=32;
+
+      //     if (!_mongocrypt_kms_ctx_init_kmip_mac_verify (
+      //          &key_returned->kms,
+      //          &kb->crypt->opts,
+      //                                               key_doc,
+      //                                               &kb->crypt->log)) {
+      //       mongocrypt_kms_ctx_status (&key_returned->kms, kb->status);
+      //       _key_broker_fail (kb);
+      //       goto done;
+      //    }
+      // } else
+
+       {
+          if (!_mongocrypt_kms_ctx_init_kmip_decrypt (
+         &key_returned->kms,
+                                                    &kb->crypt->opts,
+                                                    key_doc,
+                                                    &kb->crypt->log)) {
+            mongocrypt_kms_ctx_status (&key_returned->kms, kb->status);
+            _key_broker_fail (kb);
+            goto done;
+         }
+      }
 
 
    } else {
@@ -785,6 +791,8 @@ _mongocrypt_key_broker_kms_done (_mongocrypt_key_broker_t *kb)
          }
       }
 
+      //bool keys_need_mac_verify = false;
+
       /* Auth should be finished, create any remaining KMS requests. */
       for (key_returned = kb->keys_returned; NULL != key_returned;
            key_returned = key_returned->next) {
@@ -838,6 +846,18 @@ _mongocrypt_key_broker_kms_done (_mongocrypt_key_broker_t *kb)
 
             key_returned->needs_auth = false;
             bson_free (access_token);
+         } else if (key_returned->doc->kek.kms_provider ==
+                    MONGOCRYPT_KMS_PROVIDER_KMIP) {
+
+            if (!_mongocrypt_kms_ctx_init_kmip_decrypt (&key_returned->kms,
+                                                       &kb->crypt->opts,
+                                                       key_returned->doc,
+                                                       &kb->crypt->log)) {
+               mongocrypt_kms_ctx_status (&key_returned->kms, kb->status);
+               return _key_broker_fail (kb);
+            }
+
+            key_returned->needs_auth = false;
          } else {
             return _key_broker_fail_w_msg (kb,
                                            "unexpected, authenticating but "

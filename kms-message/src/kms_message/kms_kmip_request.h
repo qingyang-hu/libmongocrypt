@@ -113,7 +113,7 @@ kms_kmip_request_parse_mac_verify_response (
                               const uint8_t *resp,
                               size_t resp_len,
                               const kms_request_opt_t *opt,
-                              bool* valid);
+                              bool* valid_mac);
 
 
 typedef struct _kms_kmip_response_parser_t kms_kmip_response_parser_t;

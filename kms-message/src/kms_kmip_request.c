@@ -814,7 +814,7 @@ kms_kmip_request_mac_new (const char *id,
    begin_struct (writer, TAG_RequestPayload);
    write_string (writer, TAG_UniqueIdentifier, id, strlen (id));
    begin_struct (writer, TAG_CryptographicParameters);
-   write_enumeration (writer, TAG_CryptographicAlgorithm, 0xB); // HMACSHA256
+   write_enumeration (writer, TAG_CryptographicAlgorithm, 0x9); // HMACSHA256
    close_struct (writer);
    write_bytes (writer, TAG_Data, (const char *) data, data_len);
    close_struct (writer);
@@ -887,7 +887,7 @@ kms_kmip_request_mac_verify_new (const char *id,
    begin_struct (writer, TAG_RequestPayload);
    write_string (writer, TAG_UniqueIdentifier, id, strlen (id));
    begin_struct (writer, TAG_CryptographicParameters);
-   write_enumeration (writer, TAG_CryptographicAlgorithm, 0xB); // HMACSHA256
+   write_enumeration (writer, TAG_CryptographicAlgorithm, 0x9); // HMACSHA256
    close_struct (writer);
    write_bytes (writer, TAG_Data, (const char *) data, data_len);
    write_bytes (writer, TAG_MACData, (const char *) mac_data, mac_data_len);
@@ -1453,10 +1453,10 @@ kms_request_t *
 kms_kmip_request_parse_mac_verify_response (const uint8_t *resp,
                                             size_t resp_len,
                                             const kms_request_opt_t *opt,
-                                            bool *valid)
+                                            bool *valid_mac)
 {
    kms_request_t *req;
-   *valid = false;
+   *valid_mac = false;
    req = kms_request_new ("POST", "IGNORE", opt);
 
    kmip_reader_t *reader = kmip_reader_new ((uint8_t *) resp, resp_len);
@@ -1500,7 +1500,7 @@ kms_kmip_request_parse_mac_verify_response (const uint8_t *resp,
       goto done;
    }
 
-   *valid = (validity_indicator == 1);
+   *valid_mac = (validity_indicator == 1);
 
 done:
    kmip_reader_destroy (reader);
