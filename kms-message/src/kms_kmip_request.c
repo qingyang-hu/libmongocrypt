@@ -1305,6 +1305,10 @@ kms_kmip_response_parser_wants_bytes (kms_kmip_response_parser_t *parser,
       return max > 512 ? max : 512;
    }
 
+   if (parser->raw_response->len >= parser->content_length) {
+      return 0;
+   }
+
    return parser->content_length - parser->raw_response->len;
 }
 

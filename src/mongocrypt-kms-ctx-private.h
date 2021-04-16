@@ -135,10 +135,13 @@ _mongocrypt_kms_ctx_init_gcp_decrypt (mongocrypt_kms_ctx_t *kms,
    MONGOCRYPT_WARN_UNUSED_RESULT;
 
 
+struct _mongocrypt_ctx_datakey_kmip_t;
+
 bool
 _mongocrypt_kms_ctx_init_kmip_encrypt (   mongocrypt_kms_ctx_t *kms,
 _mongocrypt_crypto_t* crypto,
-   _mongocrypt_log_t *log,
+_mongocrypt_buffer_t* iv,
+      _mongocrypt_log_t *log,
    _mongocrypt_opts_t *crypt_opts,
    struct __mongocrypt_ctx_opts_t *ctx_opts,
    _mongocrypt_buffer_t *plaintext_key_material);

@@ -557,6 +557,16 @@ connect_with_tls (const char *endpoint,
       goto done;
    }
 
+   mongoc_ssl_opt_t opts;
+   memcpy(&opts, mongoc_ssl_opt_get_default(), sizeof(opts) );
+
+   // Disable TLS validation when testing against KMIP since it wil be using non-public certs
+   if( strcmp(port, "5696")==0) {
+      // opts.ca_file = "/home/mark/projects/kmip/test_data/ca.pem";
+      opts.weak_cert_validation = true;
+      opts.allow_invalid_hostname = true;
+   }
+
    success = true;
 done:
    if (result) {
@@ -564,7 +574,7 @@ done:
    }
    if (success) {
       stream = mongoc_stream_tls_new_with_hostname (
-         stream, host, (mongoc_ssl_opt_t *) mongoc_ssl_opt_get_default (), 1);
+         stream, host, &opts, 1);
    } else {
       mongoc_stream_destroy (stream);
       stream = NULL;

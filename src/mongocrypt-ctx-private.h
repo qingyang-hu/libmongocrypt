@@ -139,6 +139,8 @@ enum KMIP_KMS_STATE {
 
 typedef struct {
    enum KMIP_KMS_STATE state;
+   _mongocrypt_buffer_t intermediate_key_material;
+   _mongocrypt_buffer_t iv;
 } _mongocrypt_ctx_datakey_kmip_t;
 
 typedef struct {

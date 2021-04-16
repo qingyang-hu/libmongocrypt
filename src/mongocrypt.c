@@ -744,25 +744,8 @@ mongocrypt_setopt_kms_providers (mongocrypt_t *crypt,
 
          if (!_mongocrypt_parse_required_utf8 (
                 &as_bson,
-                "kmip.encryptKeyId",
-                &crypt->opts.kms_provider_kmip.encrypt_key_id,
-                crypt->status)) {
-            return false;
-         }
-
-         if (!_mongocrypt_parse_required_utf8 (
-                &as_bson,
-                "kmip.macKeyId",
-                &crypt->opts.kms_provider_kmip.mac_key_id,
-                crypt->status)) {
-            return false;
-         }
-
-      // TODO - not optional
-         if (!_mongocrypt_parse_optional_endpoint (
-                &as_bson,
-                "kmip.endpoint",
-                &crypt->opts.kms_provider_kmip.endpoint,
+                "kmip.placeholder",
+                &crypt->opts.kms_provider_kmip.placeholder,
                 crypt->status)) {
             return false;
          }
@@ -770,9 +753,7 @@ mongocrypt_setopt_kms_providers (mongocrypt_t *crypt,
          if (!_mongocrypt_check_allowed_fields (&as_bson,
                                                 "kmip",
                                                 crypt->status,
-                                                "encryptKeyId",
-                                                "macKeyId",
-                                                "endpoint")) {
+                                                "placeholder")) {
             return false;
          }
          crypt->opts.kms_providers |= MONGOCRYPT_KMS_PROVIDER_KMIP;

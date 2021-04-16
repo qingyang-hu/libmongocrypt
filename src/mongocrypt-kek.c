@@ -171,6 +171,7 @@ _mongocrypt_kek_parse_owned (const bson_t *bson,
       if (!_mongocrypt_check_allowed_fields (bson,
                                              NULL,
                                              status,
+                                             "provider",
                                              "endpoint",
                                              "encryptKeyId",
                                              "macKeyId"

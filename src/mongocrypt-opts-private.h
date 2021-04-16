@@ -39,9 +39,7 @@ typedef struct {
 } _mongocrypt_opts_kms_provider_gcp_t;
 
 typedef struct {
-   char *encrypt_key_id;
-   char *mac_key_id;
-   _mongocrypt_endpoint_t *endpoint;
+   char *placeholder;
 } _mongocrypt_opts_kms_provider_kmip_t;
 
 typedef struct {

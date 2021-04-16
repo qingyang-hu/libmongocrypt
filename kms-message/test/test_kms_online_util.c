@@ -83,7 +83,7 @@ connect_with_tls (const char *host, const char* port)
    }
 
    return mongoc_stream_tls_new_with_hostname (
-      stream, host, (mongoc_ssl_opt_t *) &opts, 1);
+      stream, host, &opts, 1);
 }
 
 /* Helper to send an HTTP request and receive a response. */
