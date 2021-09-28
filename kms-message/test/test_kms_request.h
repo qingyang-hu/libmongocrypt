@@ -56,4 +56,42 @@ compare_strs (const char *test_name, const char *expect, const char *actual);
       kms_request_str_destroy (_b_lower);                                    \
    } while (0)
 
+#define ASSERT_CMPINT(_a, _operator, _b)                        \
+   do {                                                         \
+      int _a_int = (int) _a;                                    \
+      int _b_int = (int) _b;                                    \
+      if (!(_a_int _operator _b_int)) {                         \
+         fprintf (stderr,                                       \
+                  "%s:%d %s(): comparison failed: %d %s %d \n", \
+                  __FILE__,                                     \
+                  __LINE__,                                     \
+                  __FUNCTION__,                                 \
+                  _a_int,                                       \
+                  #_operator,                                   \
+                  _b_int);                                      \
+         abort ();                                              \
+      }                                                         \
+   } while (0);
+
+#define ASSERT_STATUS_OK(status)                      \
+   do {                                               \
+      if (!kms_status_ok (status)) {                  \
+         fprintf (stderr,                             \
+                  "%s:%d %s(): status not ok: %s \n", \
+                  __FILE__,                           \
+                  __LINE__,                           \
+                  __FUNCTION__,                       \
+                  kms_status_to_string (status));     \
+         abort ();                                    \
+      }                                               \
+   } while(0)
+
+/* copy_and_filter_hex returns a copy of @unfiltered_hex with the following characters removed: ' ', '|' */
+char *
+copy_and_filter_hex (const char *unfiltered_hex);
+
+/* hex_to_data calls copy_and_filter_hex on @unfiltered_hex, then converts it to binary and returns a byte array. */
+uint8_t *
+hex_to_data (char *unfiltered_hex, size_t *outlen);
+
 #endif /* TEST_KMS_REQUEST_H */

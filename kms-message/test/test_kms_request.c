@@ -20,6 +20,7 @@
 #include "src/kms_message/kms_message.h"
 #include "src/kms_message_private.h"
 
+#include <ctype.h>
 #ifndef _WIN32
 #include <dirent.h>
 #else
@@ -342,6 +343,41 @@ compare_strs (const char *test_name, const char *expect, const char *actual)
 
       abort ();
    }
+}
+
+char *
+copy_and_filter_hex (const char *unfiltered_hex)
+{
+   size_t i, j;
+
+   char *filtered = malloc (strlen (unfiltered_hex) + 1);
+   j = 0;
+   for (i = 0; i < strlen (unfiltered_hex); i++) {
+      if (unfiltered_hex[i] != ' ' && unfiltered_hex[i] != '|') {
+         filtered[j] = (char) tolower (unfiltered_hex[i]);
+         j++;
+      }
+   }
+   filtered[j] = '\0';
+   return filtered;
+}
+
+uint8_t *
+hex_to_data (char *unfiltered_hex, size_t *outlen)
+{
+   char *filtered_hex;
+   uint8_t *bytes;
+   size_t i;
+
+   filtered_hex = copy_and_filter_hex (unfiltered_hex);
+   *outlen = strlen (filtered_hex) / 2;
+   bytes = malloc (*outlen);
+   for (i = 0; i < *outlen; i++) {
+      bytes[i] = unhexlify (filtered_hex + (i * 2), 2);
+   }
+
+   free (filtered_hex);
+   return bytes;
 }
 
 void
