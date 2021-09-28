@@ -17,6 +17,12 @@
 #ifndef TEST_KMS_REQUEST_H
 #define TEST_KMS_REQUEST_H
 
+#include <stdio.h>
+#include "src/kms_request_str.h"
+
+void
+compare_strs (const char *test_name, const char *expect, const char *actual);
+
 #define ASSERT_CMPSTR(_a, _b) compare_strs (__FUNCTION__, (_a), (_b))
 
 #define ASSERT(stmt)                                                        \
