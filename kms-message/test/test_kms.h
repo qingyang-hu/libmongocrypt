@@ -17,6 +17,8 @@
 #ifndef TEST_KMS_H
 #define TEST_KMS_H
 
+/* TODO: consolidate this with test_kms_request.h. */
+
 #include <mongoc/mongoc.h>
 
 #include <stdio.h>

@@ -21,8 +21,11 @@
 #include <kms_message/kms_request.h>
 #include <kms_message/kms_response.h>
 
+/* @port may be NULL. If port is NULL, it defaults to "443".
+ * @ssl_opt may be NULL. If ssl_opt is NULL, it defaults to mongoc_ssl_opt_default ().
+ */
 mongoc_stream_t *
-connect_with_tls (const char *host);
+connect_with_tls (const char *host, const char *port, mongoc_ssl_opt_t* ssl_opt);
 
 kms_response_t *
 send_kms_request (kms_request_t *req, const char *host);
