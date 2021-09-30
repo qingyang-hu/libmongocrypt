@@ -46,7 +46,18 @@ data_to_hex (uint8_t *data, uint32_t len);
 void
 compare_strs (const char *test_name, const char *expect, const char *actual);
 
-#define ASSERT_CMPSTR(_a, _b) compare_strs (__FUNCTION__, (_a), (_b))
+#define ASSERT_CMPSTR(_expect, _actual) compare_strs (__FUNCTION__, (_expect), (_actual))
+
+#define ASSERT_CMPSTR_WITH_LEN(_expect, _expect_len, _actual, _actual_len) \
+   do {                                                                    \
+      kms_request_str_t *_expect_str =                                     \
+         kms_request_str_new_from_chars ((_expect), _expect_len);          \
+      kms_request_str_t *_actual_str =                                     \
+         kms_request_str_new_from_chars ((_actual), _actual_len);          \
+      ASSERT_CMPSTR (_expect_str->str, _actual_str->str);                  \
+      kms_request_str_destroy (_actual_str);                               \
+      kms_request_str_destroy (_expect_str);                               \
+   } while (0)
 
 #define ASSERT(stmt)                             \
    if (!(stmt)) {                                \
@@ -81,7 +92,7 @@ compare_strs (const char *test_name, const char *expect, const char *actual);
    } while (0);
 
 #define ASSERT_CMPBYTES(                                                \
-   actual_bytes, actual_len, expected_bytes, expected_len)              \
+   expected_bytes, expected_len, actual_bytes, actual_len)              \
    do {                                                                 \
       char *_actual_hex = data_to_hex (actual_bytes, actual_len);       \
       char *_expected_hex = data_to_hex (expected_bytes, expected_len); \
