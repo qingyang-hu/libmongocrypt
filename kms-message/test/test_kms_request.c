@@ -380,6 +380,11 @@ hex_to_data (char *unfiltered_hex, size_t *outlen)
    return bytes;
 }
 
+char *
+data_to_hex (uint8_t *buf, uint32_t len) {
+   return hexlify (buf, (size_t)len);
+}
+
 void
 test_compare (kms_request_t *request,
               char *(*func) (kms_request_t *),
