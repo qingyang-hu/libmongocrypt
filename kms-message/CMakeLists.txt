@@ -245,6 +245,7 @@ if (NOT DISABLE_NATIVE_CRYPTO)
       ${KMS_MESSAGE_SOURCES}
       test/test_kms_request.c
       test/test_kmip_reader_writer.c
+      test/test_kms_kmip_request.c
       test/test_kms_status.c
       test/test_kms_kmip_response_parser.c
    )
