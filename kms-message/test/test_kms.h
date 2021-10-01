@@ -19,22 +19,12 @@
 
 /* TODO: consolidate this with test_kms_request.h. */
 
+#include "test_kms_request.h"
+
 #include <mongoc/mongoc.h>
 
 #include <stdio.h>
 
-void
-_test_error (const char *format, ...) BSON_GNUC_PRINTF (1, 2);
-
-#define TEST_ERROR(...)                       \
-   do {                                       \
-      fprintf (stderr,                        \
-               "test error in: %s %d:%s()\n", \
-               __FILE__,                      \
-               __LINE__,                      \
-               BSON_FUNC);                    \
-      _test_error (__VA_ARGS__);              \
-   } while (0)
 
 #define TEST_ASSERT(stmt)                            \
    do {                                              \

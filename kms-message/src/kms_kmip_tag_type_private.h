@@ -316,4 +316,6 @@ typedef enum {
    KMIP_TAG_ReplaceExisting = 0x420124
 } kmip_tag_type_t;
 
+const char* kmip_tag_to_string (kmip_tag_type_t tag);
+
 #endif /* KMS_KMIP_TAG_TYPE_PRIVATE_H */
