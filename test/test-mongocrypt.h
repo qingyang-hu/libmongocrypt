@@ -204,6 +204,39 @@ const char* mongocrypt_ctx_state_to_string (mongocrypt_ctx_state_t state);
       }                                                                     \
    } while (0)
 
+char *
+data_to_hex (const uint8_t *data, uint32_t len);
+
+#define TEST_ERROR(...)                                                        \
+   do {                                                                        \
+      fprintf (                                                                \
+         stderr, "test error %s:%d %s(): ", __FILE__, __LINE__, __FUNCTION__); \
+      fprintf (stderr, __VA_ARGS__);                                           \
+      fprintf (stderr, "\n");                                                  \
+      fflush (stderr);                                                         \
+      abort ();                                                                \
+   } while (0);
+
+#define ASSERT_CMPBYTES(                                                \
+   expected_bytes, expected_len, actual_bytes, actual_len)              \
+   do {                                                                 \
+      char *_actual_hex = data_to_hex (actual_bytes, actual_len);       \
+      char *_expected_hex = data_to_hex (expected_bytes, expected_len); \
+      ASSERT_STREQUAL (_actual_hex, _expected_hex);                       \
+      free (_actual_hex);                                               \
+      free (_expected_hex);                                             \
+   } while (0)
+
+#define ASSERT_CMPINT(_a, _operator, _b)                                \
+   do {                                                                 \
+      int _a_int = (int) _a;                                            \
+      int _b_int = (int) _b;                                            \
+      if (!(_a_int _operator _b_int)) {                                 \
+         TEST_ERROR (                                                   \
+            "comparison failed: %d %s %d", _a_int, #_operator, _b_int); \
+      }                                                                 \
+   } while (0);
+
 typedef enum {
    CRYPTO_REQUIRED,
    CRYPTO_OPTIONAL,
@@ -292,6 +325,8 @@ _mongocrypt_tester_install_kek (_mongocrypt_tester_t *tester);
 
 void
 _mongocrypt_tester_install_cache_oauth (_mongocrypt_tester_t *tester);
+
+void _mongocrypt_tester_install_kms_ctx (_mongocrypt_tester_t *tester);
 
 /* Conveniences for getting test data. */
 

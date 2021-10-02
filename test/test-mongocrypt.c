@@ -773,6 +773,23 @@ const char* mongocrypt_ctx_state_to_string (mongocrypt_ctx_state_t state) {
    }
 }
 
+char *
+data_to_hex (const uint8_t *buf, uint32_t len)
+{
+   char *hex_chars = malloc (len * 2 + 1);
+
+   char *p = hex_chars;
+   uint32_t i;
+
+   for (i = 0; i < len; i++) {
+      p += sprintf (p, "%02x", buf[i]);
+   }
+
+   *p = '\0';
+
+   return hex_chars;
+}
+
 int
 main (int argc, char **argv)
 {
@@ -818,6 +835,7 @@ main (int argc, char **argv)
                                CRYPTO_OPTIONAL);
    _mongocrypt_tester_install_kek (&tester);
    _mongocrypt_tester_install_cache_oauth (&tester);
+   _mongocrypt_tester_install_kms_ctx (&tester);
 
 
    printf ("Running tests...\n");

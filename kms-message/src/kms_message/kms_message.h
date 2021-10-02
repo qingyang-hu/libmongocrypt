@@ -28,5 +28,8 @@
 #include "kms_caller_identity_request.h"
 #include "kms_decrypt_request.h"
 #include "kms_encrypt_request.h"
+#include "kms_kmip_request.h"
+#include "kms_kmip_response.h"
+#include "kms_kmip_response_parser.h"
 
 #endif /* KMS_MESSAGE_H */
