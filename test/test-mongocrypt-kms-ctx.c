@@ -123,6 +123,7 @@ _test_mongocrypt_kms_ctx_kmip_register (_mongocrypt_tester_t *tester)
    status = mongocrypt_status_new ();
    endpoint =
       _mongocrypt_endpoint_new ("example.com", -1, NULL /* opts */, status);
+   ASSERT_OK_STATUS (endpoint != NULL, status);
 
    crypt = _mongocrypt_tester_mongocrypt ();
    ok = _mongocrypt_kms_ctx_init_kmip_register (
@@ -184,6 +185,7 @@ _test_mongocrypt_kms_ctx_kmip_activate (_mongocrypt_tester_t *tester)
    status = mongocrypt_status_new ();
    endpoint =
       _mongocrypt_endpoint_new ("example.com", -1, NULL /* opts */, status);
+   ASSERT_OK_STATUS (endpoint != NULL, status);
 
    crypt = _mongocrypt_tester_mongocrypt ();
    ok = _mongocrypt_kms_ctx_init_kmip_activate (
@@ -287,6 +289,7 @@ _test_mongocrypt_kms_ctx_kmip_get (_mongocrypt_tester_t *tester)
    status = mongocrypt_status_new ();
    endpoint =
       _mongocrypt_endpoint_new ("example.com", -1, NULL /* opts */, status);
+   ASSERT_OK_STATUS (endpoint != NULL, status);
 
    crypt = _mongocrypt_tester_mongocrypt ();
    ok = _mongocrypt_kms_ctx_init_kmip_get (
@@ -315,10 +318,47 @@ _test_mongocrypt_kms_ctx_kmip_get (_mongocrypt_tester_t *tester)
    mongocrypt_destroy (crypt);
 }
 
+static void
+_test_mongocrypt_kms_ctx_get_kms_provider (_mongocrypt_tester_t *tester)
+{
+   mongocrypt_t *crypt;
+   mongocrypt_kms_ctx_t kms_ctx = {0};
+   bool ok;
+   mongocrypt_status_t *status;
+   _mongocrypt_endpoint_t *endpoint;
+   uint32_t len;
+
+   status = mongocrypt_status_new ();
+   endpoint =
+      _mongocrypt_endpoint_new ("example.com", -1, NULL /* opts */, status);
+   ASSERT_OK_STATUS (endpoint != NULL, status);
+
+   crypt = _mongocrypt_tester_mongocrypt ();
+   ok = _mongocrypt_kms_ctx_init_kmip_activate (
+      &kms_ctx,
+      endpoint,
+      SUCCESS_ACTIVATE_RESPONSE_UNIQUE_IDENTIFIER,
+      &crypt->log);
+   ASSERT_OK_STATUS (ok, kms_ctx.status);
+
+   ASSERT_STREQUAL (mongocrypt_kms_ctx_get_kms_provider (&kms_ctx, NULL),
+                    "kmip");
+
+   ASSERT_STREQUAL (mongocrypt_kms_ctx_get_kms_provider (&kms_ctx, &len),
+                    "kmip");
+   ASSERT_CMPINT (len, ==, 4);
+
+   _mongocrypt_endpoint_destroy (endpoint);
+   mongocrypt_status_destroy (status);
+   _mongocrypt_kms_ctx_cleanup (&kms_ctx);
+   mongocrypt_destroy (crypt);
+}
+
 void
 _mongocrypt_tester_install_kms_ctx (_mongocrypt_tester_t *tester)
 {
    INSTALL_TEST (_test_mongocrypt_kms_ctx_kmip_register);
    INSTALL_TEST (_test_mongocrypt_kms_ctx_kmip_activate);
    INSTALL_TEST (_test_mongocrypt_kms_ctx_kmip_get);
+   INSTALL_TEST (_test_mongocrypt_kms_ctx_get_kms_provider);
 }
