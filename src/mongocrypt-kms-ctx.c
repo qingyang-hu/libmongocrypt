@@ -781,6 +781,11 @@ _ctx_done_kmip_register (mongocrypt_kms_ctx_t *kms_ctx)
    }
 
    uid = kms_kmip_response_get_unique_identifier (res, kms_status);
+   if (!uid) {
+      CLIENT_ERR ("Error getting unique identifier from KMIP response: %s",
+                  kms_status_to_string (kms_status));
+      goto fail;
+   }
 
    kms_ctx->result.data = (uint8_t*) uid;
    kms_ctx->result.len = strlen (uid);
