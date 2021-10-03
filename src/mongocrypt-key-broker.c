@@ -124,6 +124,7 @@ _all_key_requests_satisfied (_mongocrypt_key_broker_t *kb)
    return true;
 }
 
+/* KMIPTODO: use an errorf function to supply additional information. */
 static bool
 _key_broker_fail_w_msg (_mongocrypt_key_broker_t *kb, const char *msg)
 {
@@ -411,6 +412,40 @@ _mongocrypt_key_broker_filter (_mongocrypt_key_broker_t *kb,
 }
 
 static bool
+unwrap_key (_mongocrypt_crypto_t *crypto,
+            _mongocrypt_buffer_t *kek,
+            _mongocrypt_buffer_t *encrypted_dek,
+            _mongocrypt_buffer_t *dek,
+            mongocrypt_status_t *status)
+{
+   uint32_t bytes_written;
+
+   _mongocrypt_buffer_init (dek);
+   _mongocrypt_buffer_resize (
+      dek, _mongocrypt_calculate_plaintext_len (encrypted_dek->len));
+
+   if (!_mongocrypt_do_decryption (crypto,
+                                   NULL /* associated data. */,
+                                   kek,
+                                   encrypted_dek,
+                                   dek,
+                                   &bytes_written,
+                                   status)) {
+      return false;
+   }
+   dek->len = bytes_written;
+
+   if (dek->len != MONGOCRYPT_KEY_LEN) {
+      CLIENT_ERR ("decrypted key is incorrect length");
+      return false;
+   }
+   return true;
+}
+
+/* KMIPTODO: rename this to a more generic "unwrap_key" and move.
+ * Remove _mongocrypt_key_broker and add a mongocrypt_status_t out.
+ */
+static bool
 _decrypt_with_local_kms (_mongocrypt_key_broker_t *kb,
                          _mongocrypt_buffer_t *key_material,
                          _mongocrypt_buffer_t *decrypted_key_material)
@@ -588,6 +623,34 @@ _mongocrypt_key_broker_add_doc (_mongocrypt_key_broker_t *kb,
             _key_broker_fail (kb);
             goto done;
          }
+      }
+   } else if (kek_provider == MONGOCRYPT_KMS_PROVIDER_KMIP) {
+      char *unique_identifier;
+      _mongocrypt_endpoint_t *endpoint;
+
+      if (!key_returned->doc->kek.provider.kmip.key_id) {
+         _key_broker_fail_w_msg (kb, "KMIP key malformed, no keyId present");
+         goto done;
+      }
+
+      unique_identifier = key_returned->doc->kek.provider.kmip.key_id;
+
+      if (key_returned->doc->kek.provider.kmip.endpoint) {
+         endpoint = key_returned->doc->kek.provider.kmip.endpoint;
+      } else if (kb->crypt->opts.kms_provider_kmip.endpoint) {
+         endpoint = kb->crypt->opts.kms_provider_kmip.endpoint;
+      } else {
+         _key_broker_fail_w_msg (kb, "endpoint not set for KMIP request");
+         goto done;
+      }
+
+      if (!_mongocrypt_kms_ctx_init_kmip_get (&key_returned->kms,
+                                              endpoint,
+                                              unique_identifier,
+                                              &kb->crypt->log)) {
+         mongocrypt_kms_ctx_status (&key_returned->kms, kb->status);
+         _key_broker_fail (kb);
+         goto done;
       }
    } else {
       _key_broker_fail_w_msg (kb, "unrecognized kms provider");
@@ -849,6 +912,27 @@ _mongocrypt_key_broker_kms_done (_mongocrypt_key_broker_t *kb)
             mongocrypt_kms_ctx_status (&key_returned->kms, kb->status);
             return _key_broker_fail (kb);
          }
+      } else if (key_returned->doc->kek.kms_provider ==
+                 MONGOCRYPT_KMS_PROVIDER_KMIP) {
+         _mongocrypt_buffer_t kek;
+         if (!_mongocrypt_kms_ctx_result (&key_returned->kms, &kek)) {
+            mongocrypt_kms_ctx_status (&key_returned->kms, kb->status);
+            return _key_broker_fail (kb);
+         }
+
+         if (!unwrap_key (kb->crypt->crypto,
+                          &kek,
+                          &key_returned->doc->key_material,
+                          &key_returned->decrypted_key_material,
+                          kb->status)) {
+            _key_broker_fail (kb);
+            _mongocrypt_buffer_cleanup (&kek);
+            return false;
+         }
+         _mongocrypt_buffer_cleanup (&kek);
+      } else if (key_returned->doc->kek.kms_provider !=
+                 MONGOCRYPT_KMS_PROVIDER_LOCAL) {
+         return _key_broker_fail_w_msg (kb, "unrecognized kms provider");
       }
 
       if (key_returned->decrypted_key_material.len != MONGOCRYPT_KEY_LEN) {
