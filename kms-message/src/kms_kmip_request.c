@@ -104,7 +104,6 @@ kms_kmip_request_register_secretdata_new (void *reserved,
    kmip_writer_begin_struct (writer, KMIP_TAG_BatchItem);
    /* 0x03 == Register */
    kmip_writer_write_enumeration (writer, KMIP_TAG_Operation, 0x03);
-   kmip_writer_write_bytes (writer, KMIP_TAG_UniqueBatchItemID, "A", 1);
    kmip_writer_begin_struct (writer, KMIP_TAG_RequestPayload);
    /* 0x07 == SecretData */
    kmip_writer_write_enumeration (writer, KMIP_TAG_ObjectType, 0x07);
