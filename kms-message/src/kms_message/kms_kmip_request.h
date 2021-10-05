@@ -20,7 +20,6 @@
 #include "kms_status.h"
 #include "kms_message_defines.h"
 
-#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -29,19 +28,36 @@ extern "C" {
 
 typedef struct _kms_kmip_request_t kms_kmip_request_t;
 
+/* kms_kmip_request_register_secretdata_new creates a KMIP Register request with
+ * a 96 byte SecretData payload.
+ * - len must be 96.
+ * - Returns NULL and sets status on error. */
 KMS_MSG_EXPORT (kms_kmip_request_t *)
 kms_kmip_request_register_secretdata_new (void *reserved,
                                           uint8_t *data,
                                           uint32_t len,
                                           kms_status_t *status);
 
+/* kms_kmip_request_activate_new creates a KMIP Activate request with the
+ * provided unique identifer.
+ * - unique_identifier must be a NULL terminated string.
+ * - Returns NULL and sets status on error. */
 KMS_MSG_EXPORT (kms_kmip_request_t *)
-kms_kmip_request_activate_new (void *reserved, char* uid, kms_status_t *status);
+kms_kmip_request_activate_new (void *reserved,
+                               char *unique_identifier,
+                               kms_status_t *status);
 
-/* uid is a NULL terminated string. */
+/* kms_kmip_request_get_new creates a KMIP Get request with the provided unique
+ * identifer.
+ * - unique_identifier must be a NULL terminated string.
+ * - Returns NULL and sets status on error. */
 KMS_MSG_EXPORT (kms_kmip_request_t *)
-kms_kmip_request_get_new (void *reserved, char *uid, kms_status_t *status);
+kms_kmip_request_get_new (void *reserved,
+                          char *unique_identifier,
+                          kms_status_t *status);
 
+/* kms_kmip_request_to_bytes returns the data for a request.
+ * - Returns NULL on error. */
 KMS_MSG_EXPORT (uint8_t *)
 kms_kmip_request_to_bytes (kms_kmip_request_t *req, uint32_t *len);
 
