@@ -86,26 +86,24 @@ result_status_to_string (uint32_t result_status)
 }
 
 /* Example successful Response to a Register request:
-<ResponseMessage tag="0x42007b" type="Structure">
- <ResponseHeader tag="0x42007a" type="Structure">
-  <ProtocolVersion tag="0x420069" type="Structure">
-   <ProtocolVersionMajor tag="0x42006a" type="Integer" value="1"/>
-   <ProtocolVersionMinor tag="0x42006b" type="Integer" value="4"/>
-  </ProtocolVersion>
-  <TimeStamp tag="0x420092" type="DateTime"
-value="2021-10-05T10/05/21-0500"/> <BatchCount tag="0x42000d" type="Integer"
-value="1"/>
- </ResponseHeader>
- <BatchItem tag="0x42000f" type="Structure">
-  <Operation tag="0x42005c" type="Enumeration" value="3"/>
-  <UniqueBatchItemID tag="0x420093" type="ByteString" value="41"/>
-  <ResultStatus tag="0x42007f" type="Enumeration" value="0"/>
-  <ResponsePayload tag="0x42007c" type="Structure">
-   <UniqueIdentifier tag="0x420094" type="TextString"
-value="7FJYvnV6XkaUCWuY96bCSc6AuhvkPpqI"/>
-  </ResponsePayload>
- </BatchItem>
-</ResponseMessage>
+   <ResponseMessage tag="0x42007b" type="Structure">
+    <ResponseHeader tag="0x42007a" type="Structure">
+     <ProtocolVersion tag="0x420069" type="Structure">
+      <ProtocolVersionMajor tag="0x42006a" type="Integer" value="1"/>
+      <ProtocolVersionMinor tag="0x42006b" type="Integer" value="4"/>
+     </ProtocolVersion>
+     <TimeStamp tag="0x420092" type="DateTime" value="2021-10-05T10/05/21-0500"/>
+     <BatchCount tag="0x42000d" type="Integer" value="1"/>
+    </ResponseHeader>
+    <BatchItem tag="0x42000f" type="Structure">
+     <Operation tag="0x42005c" type="Enumeration" value="3"/>
+     <UniqueBatchItemID tag="0x420093" type="ByteString" value="41"/>
+     <ResultStatus tag="0x42007f" type="Enumeration" value="0"/>
+     <ResponsePayload tag="0x42007c" type="Structure">
+      <UniqueIdentifier tag="0x420094" type="TextString" value="7FJYvnV6XkaUCWuY96bCSc6AuhvkPpqI"/>
+     </ResponsePayload>
+    </BatchItem>
+   </ResponseMessage>
 */
 char *
 kms_kmip_response_get_unique_identifier (kms_kmip_response_t *res,
@@ -171,22 +169,21 @@ Example successful Response to a Get Request of a SecretData.
    <ProtocolVersionMajor tag="0x42006a" type="Integer" value="1"/>
    <ProtocolVersionMinor tag="0x42006b" type="Integer" value="4"/>
   </ProtocolVersion>
-  <TimeStamp tag="0x420092" type="DateTime"
-value="2021-10-01T10/01/21-0500"/> <BatchCount tag="0x42000d" type="Integer"
-value="1"/>
+  <TimeStamp tag="0x420092" type="DateTime" value="2021-10-01T00:00:00-0500"/>
+  <BatchCount tag="0x42000d" type="Integer" value="1"/>
  </ResponseHeader>
  <BatchItem tag="0x42000f" type="Structure">
   <Operation tag="0x42005c" type="Enumeration" value="10"/>
   <ResultStatus tag="0x42007f" type="Enumeration" value="0"/>
   <ResponsePayload tag="0x42007c" type="Structure">
    <ObjectType tag="0x420057" type="Enumeration" value="7"/>
-   <UniqueIdentifier tag="0x420094" type="TextString"
-value="VeUgqtuTi4bI8mHXH9CeocbMHLyrXnfF"/> <SecretData tag="0x420085"
-type="Structure"> <SecretDataType tag="0x420086" type="Enumeration"
-value="2"/> <KeyBlock tag="0x420040" type="Structure"> <KeyFormatType
-tag="0x420042" type="Enumeration" value="1"/> <KeyValue tag="0x420045"
-type="Structure"> <KeyMaterial tag="0x420043" type="ByteString"
-value="ffa8cc79e8c3763b0121fcd06bb3488c8bf42c0774604640279b16b264194030eeb08396241defcc4d32d16ea831ad777138f08e2f985664c004c2485d6f4991eb3d9ec32802537836a9066b4e10aeb56a5ccf6aa46901e625e3400c7811d2ec"/>
+   <UniqueIdentifier tag="0x420094" type="TextString" value="VeUgqtuTi4bI8mHXH9CeocbMHLyrXnfF"/>
+   <SecretData tag="0x420085" type="Structure">
+      <SecretDataType tag="0x420086" type="Enumeration" value="2"/>
+      <KeyBlock tag="0x420040" type="Structure">
+      <KeyFormatType tag="0x420042" type="Enumeration" value="1"/>
+      <KeyValue tag="0x420045" type="Structure">
+         <KeyMaterial tag="0x420043" type="ByteString" value="ffa8cc79e8c3763b0121fcd06bb3488c8bf42c0774604640279b16b264194030eeb08396241defcc4d32d16ea831ad777138f08e2f985664c004c2485d6f4991eb3d9ec32802537836a9066b4e10aeb56a5ccf6aa46901e625e3400c7811d2ec"/>
      </KeyValue>
     </KeyBlock>
    </SecretData>
@@ -297,7 +294,7 @@ Example error response to a Get request:
    <ProtocolVersionMinor tag="0x42006b" type="Integer" value="4"/>
   </ProtocolVersion>
   <TimeStamp tag="0x420092" type="DateTime"
-value="2021-10-01T10/01/21-0500"/> <BatchCount tag="0x42000d" type="Integer"
+value="2021-10-01T00:00:00-0500"/> <BatchCount tag="0x42000d" type="Integer"
 value="1"/>
  </ResponseHeader>
  <BatchItem tag="0x42000f" type="Structure">
