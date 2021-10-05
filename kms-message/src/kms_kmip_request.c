@@ -14,22 +14,23 @@
  * limitations under the License.
  */
 
-#include <inttypes.h>
-#include <stdint.h>
-
 #include "kms_kmip_reader_writer_private.h"
 #include "kms_status_private.h"
 
 #include "kms_message/kms_kmip_request.h"
 #include "kms_message/kms_status.h"
 
+#include <inttypes.h>
+#include <stdint.h>
+
 struct _kms_kmip_request_t {
-    uint8_t *data;
-    uint32_t len;
+   uint8_t *data;
+   uint32_t len;
 };
 
 void
-kms_kmip_request_destroy (kms_kmip_request_t *req) {
+kms_kmip_request_destroy (kms_kmip_request_t *req)
+{
    if (!req) {
       return;
    }
@@ -39,45 +40,39 @@ kms_kmip_request_destroy (kms_kmip_request_t *req) {
 
 kms_kmip_request_t *
 kms_kmip_request_register_secretdata_new (void *reserved,
-                                                       uint8_t *data,
-                                                       uint32_t len,
-                                                       kms_status_t *status)
+                                          uint8_t *data,
+                                          uint32_t len,
+                                          kms_status_t *status)
 {
    /*
    Create a KMIP Register request with a 96 byte SecretData of this form:
-   
-   <RequestMessage>
-      <RequestHeader>
-         <ProtocolVersion>
-            <ProtocolVersionMajor type="Integer" value="1" />
-            <ProtocolVersionMinor type="Integer" value="4" />
-         </ProtocolVersion>
-         <BatchCount type="Integer" value="1" />
-      </RequestHeader>
-      <BatchItem>
-         <Operation type="Enumeration" value="00000003" />
-         <UniqueBatchItemID type="ByteString" value="A" />
-         <RequestPayload>
-            <ObjectType type="Enumeration" value="00000007" />
-            <TemplateAttribute>
-            TODO: are any attributes required by vault?
-            </TemplateAttribute>
-            <SecretData>
-               TODO:
-               00000001 is "Password".
-               00000002 is type "Seed".
-               Should I use an extension?
-               <SecretDataType type="Enumeration" value="00000002" />
-               <KeyBlock>
-                  00000001 = Raw
-                  <KeyFormatType type="Enumeration" value="00000001" />
-                  <KeyValue>
-                     <KeyMaterial type="ByteString" value="..." />
-                  </KeyValue>
-               </KeyBlock>
-            </SecretData>
-         </RequestPayload>
-      </BatchItem>
+
+   <RequestMessage tag="0x420078" type="Structure">
+    <RequestHeader tag="0x420077" type="Structure">
+     <ProtocolVersion tag="0x420069" type="Structure">
+      <ProtocolVersionMajor tag="0x42006a" type="Integer" value="1"/>
+      <ProtocolVersionMinor tag="0x42006b" type="Integer" value="4"/>
+     </ProtocolVersion>
+     <BatchCount tag="0x42000d" type="Integer" value="1"/>
+    </RequestHeader>
+    <BatchItem tag="0x42000f" type="Structure">
+     <Operation tag="0x42005c" type="Enumeration" value="3"/>
+     <RequestPayload tag="0x420079" type="Structure">
+      <ObjectType tag="0x420057" type="Enumeration" value="7"/>
+      <TemplateAttribute tag="0x420091" type="Structure">
+      </TemplateAttribute>
+      <SecretData tag="0x420085" type="Structure">
+       <SecretDataType tag="0x420086" type="Enumeration" value="2"/>
+       <KeyBlock tag="0x420040" type="Structure">
+        <KeyFormatType tag="0x420042" type="Enumeration" value="1"/>
+        <KeyValue tag="0x420045" type="Structure">
+         <KeyMaterial tag="0x420043" type="ByteString" value="..."/>
+        </KeyValue>
+       </KeyBlock>
+      </SecretData>
+     </RequestPayload>
+    </BatchItem>
+   </RequestMessage>
    */
 
    kmip_writer_t *writer;
@@ -86,7 +81,8 @@ kms_kmip_request_register_secretdata_new (void *reserved,
    size_t buflen;
 
    if (len != 96) {
-      kms_status_errorf (status, "expected SecretData length of 96, got %" PRIu32, len);
+      kms_status_errorf (
+         status, "expected SecretData length of 96, got %" PRIu32, len);
       return NULL;
    }
 
@@ -98,9 +94,9 @@ kms_kmip_request_register_secretdata_new (void *reserved,
    kmip_writer_write_integer (writer, KMIP_TAG_ProtocolVersionMajor, 1);
    kmip_writer_write_integer (writer, KMIP_TAG_ProtocolVersionMinor, 4);
    kmip_writer_close_struct (writer); /* KMIP_TAG_ProtocolVersion */
-   kmip_writer_write_integer(writer, KMIP_TAG_BatchCount, 1);
+   kmip_writer_write_integer (writer, KMIP_TAG_BatchCount, 1);
    kmip_writer_close_struct (writer); /* KMIP_TAG_RequestHeader */
-   
+
    kmip_writer_begin_struct (writer, KMIP_TAG_BatchItem);
    /* 0x03 == Register */
    kmip_writer_write_enumeration (writer, KMIP_TAG_Operation, 0x03);
@@ -116,7 +112,7 @@ kms_kmip_request_register_secretdata_new (void *reserved,
    /* 0x01 = Raw */
    kmip_writer_write_enumeration (writer, KMIP_TAG_KeyFormatType, 0x01);
    kmip_writer_begin_struct (writer, KMIP_TAG_KeyValue);
-   kmip_writer_write_bytes (writer, KMIP_TAG_KeyMaterial, (char*) data, len);
+   kmip_writer_write_bytes (writer, KMIP_TAG_KeyMaterial, (char *) data, len);
    kmip_writer_close_struct (writer); /* KMIP_TAG_KeyValue */
    kmip_writer_close_struct (writer); /* KMIP_TAG_KeyBlock */
    kmip_writer_close_struct (writer); /* KMIP_TAG_SecretData */
@@ -135,24 +131,27 @@ kms_kmip_request_register_secretdata_new (void *reserved,
 }
 
 kms_kmip_request_t *
-kms_kmip_request_activate_new (void *reserved, char* uid, kms_status_t *status) {
+kms_kmip_request_activate_new (void *reserved,
+                               char *unique_identifer,
+                               kms_status_t *status)
+{
    /*
    Create a KMIP Activate request of this form:
-   <RequestMessage>
-      <RequestHeader>
-         <ProtocolVersion>
-            <ProtocolVersionMajor type="Integer" value="1" />
-            <ProtocolVersionMinor type="Integer" value="4" />
-         </ProtocolVersion>
-         <BatchCount type="Integer" value="1" />
-      </RequestHeader>
-      <BatchItem>
-         // 00000012 = Activate
-         <Operation type="Enumeration" value="00000012" />
-         <RequestPayload>
-            <UniqueIdentifier type="TextString" value="...">
-         </RequestPayload>
-      </BatchItem>
+   <RequestMessage tag="0x420078" type="Structure">
+    <RequestHeader tag="0x420077" type="Structure">
+     <ProtocolVersion tag="0x420069" type="Structure">
+      <ProtocolVersionMajor tag="0x42006a" type="Integer" value="1"/>
+      <ProtocolVersionMinor tag="0x42006b" type="Integer" value="4"/>
+     </ProtocolVersion>
+     <BatchCount tag="0x42000d" type="Integer" value="1"/>
+    </RequestHeader>
+    <BatchItem tag="0x42000f" type="Structure">
+     <Operation tag="0x42005c" type="Enumeration" value="18"/>
+     <RequestPayload tag="0x420079" type="Structure">
+      <UniqueIdentifier tag="0x420094" type="TextString" value="..."/>
+     </RequestPayload>
+    </BatchItem>
+   </RequestMessage>
    */
 
    kmip_writer_t *writer;
@@ -168,14 +167,17 @@ kms_kmip_request_activate_new (void *reserved, char* uid, kms_status_t *status) 
    kmip_writer_write_integer (writer, KMIP_TAG_ProtocolVersionMajor, 1);
    kmip_writer_write_integer (writer, KMIP_TAG_ProtocolVersionMinor, 4);
    kmip_writer_close_struct (writer); /* KMIP_TAG_ProtocolVersion */
-   kmip_writer_write_integer(writer, KMIP_TAG_BatchCount, 1);
+   kmip_writer_write_integer (writer, KMIP_TAG_BatchCount, 1);
    kmip_writer_close_struct (writer); /* KMIP_TAG_RequestHeader */
-   
+
    kmip_writer_begin_struct (writer, KMIP_TAG_BatchItem);
    /* 0x0A == Get */
    kmip_writer_write_enumeration (writer, KMIP_TAG_Operation, 0x12);
    kmip_writer_begin_struct (writer, KMIP_TAG_RequestPayload);
-   kmip_writer_write_string (writer, KMIP_TAG_UniqueIdentifier, uid, strlen(uid));
+   kmip_writer_write_string (writer,
+                             KMIP_TAG_UniqueIdentifier,
+                             unique_identifer,
+                             strlen (unique_identifer));
    kmip_writer_close_struct (writer); /* KMIP_TAG_RequestPayload */
    kmip_writer_close_struct (writer); /* KMIP_TAG_BatchItem */
    kmip_writer_close_struct (writer); /* KMIP_TAG_RequestMessage */
@@ -191,24 +193,27 @@ kms_kmip_request_activate_new (void *reserved, char* uid, kms_status_t *status) 
 }
 
 kms_kmip_request_t *
-kms_kmip_request_get_new (void *reserved, char *uid, kms_status_t *status) {
+kms_kmip_request_get_new (void *reserved,
+                          char *unique_identifer,
+                          kms_status_t *status)
+{
    /*
    Create a KMIP Get request of this form:
-   <RequestMessage>
-      <RequestHeader>
-         <ProtocolVersion>
-            <ProtocolVersionMajor type="Integer" value="1" />
-            <ProtocolVersionMinor type="Integer" value="4" />
-         </ProtocolVersion>
-         <BatchCount type="Integer" value="1" />
-      </RequestHeader>
-      <BatchItem>
-         // 0000000A = Get
-         <Operation type="Enumeration" value="0000000A" />
-         <RequestPayload>
-            <UniqueIdentifier type="TextString" value="...">
-         </RequestPayload>
-      </BatchItem>
+   <RequestMessage tag="0x420078" type="Structure">
+    <RequestHeader tag="0x420077" type="Structure">
+     <ProtocolVersion tag="0x420069" type="Structure">
+      <ProtocolVersionMajor tag="0x42006a" type="Integer" value="1"/>
+      <ProtocolVersionMinor tag="0x42006b" type="Integer" value="4"/>
+     </ProtocolVersion>
+     <BatchCount tag="0x42000d" type="Integer" value="1"/>
+    </RequestHeader>
+    <BatchItem tag="0x42000f" type="Structure">
+     <Operation tag="0x42005c" type="Enumeration" value="10"/>
+     <RequestPayload tag="0x420079" type="Structure">
+      <UniqueIdentifier tag="0x420094" type="TextString" value="..."/>
+     </RequestPayload>
+    </BatchItem>
+   </RequestMessage>
    */
 
    kmip_writer_t *writer;
@@ -224,14 +229,17 @@ kms_kmip_request_get_new (void *reserved, char *uid, kms_status_t *status) {
    kmip_writer_write_integer (writer, KMIP_TAG_ProtocolVersionMajor, 1);
    kmip_writer_write_integer (writer, KMIP_TAG_ProtocolVersionMinor, 4);
    kmip_writer_close_struct (writer); /* KMIP_TAG_ProtocolVersion */
-   kmip_writer_write_integer(writer, KMIP_TAG_BatchCount, 1);
+   kmip_writer_write_integer (writer, KMIP_TAG_BatchCount, 1);
    kmip_writer_close_struct (writer); /* KMIP_TAG_RequestHeader */
-   
+
    kmip_writer_begin_struct (writer, KMIP_TAG_BatchItem);
    /* 0x0A == Get */
    kmip_writer_write_enumeration (writer, KMIP_TAG_Operation, 0x0A);
    kmip_writer_begin_struct (writer, KMIP_TAG_RequestPayload);
-   kmip_writer_write_string (writer, KMIP_TAG_UniqueIdentifier, uid, strlen(uid));
+   kmip_writer_write_string (writer,
+                             KMIP_TAG_UniqueIdentifier,
+                             unique_identifer,
+                             strlen (unique_identifer));
    /* 0x01 = Raw */
    kmip_writer_close_struct (writer); /* KMIP_TAG_RequestPayload */
    kmip_writer_close_struct (writer); /* KMIP_TAG_BatchItem */
@@ -247,7 +255,9 @@ kms_kmip_request_get_new (void *reserved, char *uid, kms_status_t *status) {
    return req;
 }
 
-uint8_t * kms_kmip_request_to_bytes (kms_kmip_request_t *req, uint32_t *len) {
+uint8_t *
+kms_kmip_request_to_bytes (kms_kmip_request_t *req, uint32_t *len)
+{
    if (!req) {
       *len = 0;
       return NULL;

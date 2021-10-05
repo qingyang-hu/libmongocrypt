@@ -27,7 +27,8 @@ struct _kms_kmip_response_parser_t {
    kms_request_str_t *buf;
 };
 
-/* FIRST_LENGTH is the number of bytes needed to determine the length of the remaining message. */
+/* FIRST_LENGTH is the number of bytes needed to determine the length of the
+ * remaining message. */
 #define FIRST_LENGTH 8
 /* FIRST_LENGTH_OFFSET is the offset of the first four byte length. */
 #define FIRST_LENGTH_OFFSET 4
@@ -64,7 +65,7 @@ kms_kmip_response_parser_feed (kms_kmip_response_parser_t *parser,
                                uint32_t len,
                                kms_status_t *status)
 {
-   kms_request_str_append_chars (parser->buf, (char*) buf, len);
+   kms_request_str_append_chars (parser->buf, (char *) buf, len);
    parser->bytes_fed += len;
 
    if (parser->first_len == 0 && parser->bytes_fed >= FIRST_LENGTH) {

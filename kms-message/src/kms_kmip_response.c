@@ -9,6 +9,11 @@
 uint8_t *
 kms_kmip_response_to_bytes (kms_kmip_response_t *res, uint32_t *len)
 {
+   if (!res) {
+      *len = 0;
+      return NULL;
+   }
+
    *len = res->len;
    return res->data;
 }
@@ -109,7 +114,7 @@ kms_kmip_response_get_unique_identifier (kms_kmip_response_t *res,
    kmip_reader_t *reader = NULL;
    size_t pos;
    size_t len;
-   char *uid = NULL;
+   char *unique_identifer = NULL;
    kms_request_str_t *nullterminated = NULL;
 
    if (!kms_kmip_response_ok (res, status)) {
@@ -146,12 +151,12 @@ kms_kmip_response_get_unique_identifier (kms_kmip_response_t *res,
       goto fail;
    }
 
-   if (!kmip_reader_read_string (reader, (uint8_t **) &uid, len)) {
+   if (!kmip_reader_read_string (reader, (uint8_t **) &unique_identifer, len)) {
       kms_status_errorf (status, "unable to read unique identifier");
       goto fail;
    }
 
-   nullterminated = kms_request_str_new_from_chars (uid, len);
+   nullterminated = kms_request_str_new_from_chars (unique_identifer, len);
 
 fail:
    kmip_reader_destroy (reader);
@@ -331,7 +336,7 @@ kms_kmip_response_ok (kms_kmip_response_t *res, kms_status_t *status)
    if (!kmip_reader_find_and_recurse (reader, KMIP_TAG_BatchItem)) {
       kms_status_errorf (status,
                          "unable to find tag: %s",
-                         kmip_tag_type_to_string (KMIP_TAG_ResponseMessage));
+                         kmip_tag_type_to_string (KMIP_TAG_BatchItem));
       goto fail;
    }
 
