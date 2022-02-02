@@ -28,6 +28,11 @@ import org.bson.codecs.DecoderContext;
 import org.bson.json.JsonReader;
 import org.junit.Test;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.NoSuchPaddingException;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -40,6 +45,9 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -202,6 +210,35 @@ public class MongoCryptTest {
         encryptor.close();
 
         mongoCrypt.close();
+    }
+
+    public void testCipherGetInstance (String cipherName, boolean useIv) throws NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException {
+        System.out.println ("Test for cipher '" + cipherName + "' ... begin");
+        try {
+            byte[] key = new byte[32];
+            SecretKeySpec secretKeySpec = new SecretKeySpec(key, "AES");
+            Cipher cipher = Cipher.getInstance(cipherName);
+            if (useIv) {
+                byte[] iv = new byte[16];
+                IvParameterSpec ivParameterSpec = new IvParameterSpec(iv);
+                cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, ivParameterSpec);   
+            } else {
+                cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);   
+            }
+            System.out.println ("OK");
+        } catch (NoSuchAlgorithmException nsae) {
+            System.out.println ("NoSuchAlgorithmException: ");
+            System.out.println (nsae.getMessage());
+        }
+        System.out.println ("Test for cipher '" + cipherName + "' ... end");
+    }
+
+    @Test
+    public void testSupportedCipherModes () throws NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException {
+        testCipherGetInstance("foo", true);
+        testCipherGetInstance("AES/CBC/NoPadding", true);
+        testCipherGetInstance("AES/CTR/NoPadding", true);
+        testCipherGetInstance("AES/ECB/NoPadding", false);
     }
 
     private void testKeyDecryptor(final MongoCryptContext context) throws URISyntaxException, IOException {
