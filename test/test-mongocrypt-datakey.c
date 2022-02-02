@@ -240,6 +240,100 @@ _test_create_data_key (_mongocrypt_tester_t *tester)
       tester, MONGOCRYPT_KMS_PROVIDER_LOCAL, true /* with_alt_name */);
 }
 
+/* _test_datakey_custom_keymaterial is a sketch of a failing test for MONGOCRYPT-364. */
+static void
+_test_datakey_custom_keymaterial (_mongocrypt_tester_t *tester) {
+   mongocrypt_t *crypt;
+   mongocrypt_ctx_t *ctx;
+   mongocrypt_binary_t *key_encryption_key;
+   mongocrypt_binary_t *datakey1;
+   _mongocrypt_buffer_t datakey1_buf;
+   bson_t datakey1_bson;
+   mongocrypt_binary_t *ciphertext1;
+   _mongocrypt_buffer_t ciphertext1_buf;
+   mongocrypt_binary_t *datakey2;
+   _mongocrypt_buffer_t datakey2_buf;
+   bson_t datakey2_bson;
+   mongocrypt_binary_t *ciphertext2;
+   _mongocrypt_buffer_t ciphertext2_buf;
+
+   crypt = _mongocrypt_tester_mongocrypt ();
+
+   /* Create datakey 1 with a key material "foo". */
+   ctx = mongocrypt_ctx_new (crypt);
+   key_encryption_key = TEST_BSON ("{'provider': 'local'}");
+   ASSERT_OK (mongocrypt_ctx_setopt_key_encryption_key (ctx, key_encryption_key), ctx);
+   ASSERT_OK (mongocrypt_ctx_setopt_key_alt_name (ctx, TEST_BSON("{'keyAltName': 'datakey1'}")), ctx);
+   /* TODO: set a custom key material with new API. */
+   ASSERT_OK (mongocrypt_ctx_datakey_init (ctx), ctx);
+   _mongocrypt_tester_run_ctx_to (tester, ctx, MONGOCRYPT_CTX_READY);
+   datakey1 = mongocrypt_binary_new ();
+   ASSERT_OK (mongocrypt_ctx_finalize (ctx, datakey1), ctx);
+   /* Copy datakey contents. */
+   _mongocrypt_buffer_copy_from_binary (&datakey1_buf, datakey1);
+   ASSERT (_mongocrypt_buffer_to_bson (&datakey1_buf, &datakey1_bson));
+   printf ("Created datakey1: %s", tmp_json (&datakey1_bson));
+   mongocrypt_ctx_destroy (ctx);
+
+   /* Do explicit deterministic encryption with datakey 1. */
+   ctx = mongocrypt_ctx_new (crypt);
+   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", -1), ctx);
+   ASSERT_OK (mongocrypt_ctx_setopt_key_alt_name (ctx, TEST_BSON("{'keyAltName': 'datakey1'}")), ctx);
+   ASSERT_OK (mongocrypt_ctx_explicit_encrypt_init (ctx, TEST_BSON ("{'v': 123}")), ctx);
+   _mongocrypt_tester_run_ctx_to (tester, ctx, MONGOCRYPT_CTX_NEED_MONGO_KEYS);
+   ASSERT_OK (mongocrypt_ctx_mongo_feed (ctx, _mongocrypt_buffer_as_binary (&datakey1_buf)), ctx);
+   ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
+   _mongocrypt_tester_run_ctx_to (tester, ctx, MONGOCRYPT_CTX_READY);
+   ciphertext1 = mongocrypt_binary_new ();
+   ASSERT_OK (mongocrypt_ctx_finalize (ctx, ciphertext1), ctx);
+   _mongocrypt_buffer_copy_from_binary (&ciphertext1_buf, ciphertext1);
+   mongocrypt_ctx_destroy (ctx);
+
+   /* Create datakey 2 with a key material "foo". */
+   ctx = mongocrypt_ctx_new (crypt);
+   key_encryption_key = TEST_BSON ("{'provider': 'local'}");
+   ASSERT_OK (mongocrypt_ctx_setopt_key_encryption_key (ctx, key_encryption_key), ctx);
+   ASSERT_OK (mongocrypt_ctx_setopt_key_alt_name (ctx, TEST_BSON("{'keyAltName': 'datakey2'}")), ctx);
+   /* TODO: set a custom key material with new API. */
+   ASSERT_OK (mongocrypt_ctx_datakey_init (ctx), ctx);
+   _mongocrypt_tester_run_ctx_to (tester, ctx, MONGOCRYPT_CTX_READY);
+   datakey2 = mongocrypt_binary_new ();
+   ASSERT_OK (mongocrypt_ctx_finalize (ctx, datakey2), ctx);
+   /* Copy datakey contents. */
+   _mongocrypt_buffer_copy_from_binary (&datakey2_buf, datakey2);
+   ASSERT (_mongocrypt_buffer_to_bson (&datakey2_buf, &datakey2_bson));
+   printf ("Created datakey2: %s", tmp_json (&datakey2_bson));
+   mongocrypt_ctx_destroy (ctx);
+
+   /* Do explicit deterministic encryption with datakey 2. */
+   ctx = mongocrypt_ctx_new (crypt);
+   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", -1), ctx);
+   ASSERT_OK (mongocrypt_ctx_setopt_key_alt_name (ctx, TEST_BSON("{'keyAltName': 'datakey2'}")), ctx);
+   ASSERT_OK (mongocrypt_ctx_explicit_encrypt_init (ctx, TEST_BSON ("{'v': 123}")), ctx);
+   _mongocrypt_tester_run_ctx_to (tester, ctx, MONGOCRYPT_CTX_NEED_MONGO_KEYS);
+   ASSERT_OK (mongocrypt_ctx_mongo_feed (ctx, _mongocrypt_buffer_as_binary (&datakey2_buf)), ctx);
+   ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
+   _mongocrypt_tester_run_ctx_to (tester, ctx, MONGOCRYPT_CTX_READY);
+   ciphertext2 = mongocrypt_binary_new ();
+   ASSERT_OK (mongocrypt_ctx_finalize (ctx, ciphertext2), ctx);
+   _mongocrypt_buffer_copy_from_binary (&ciphertext2_buf, ciphertext2);
+   mongocrypt_ctx_destroy (ctx);
+
+   /* TODO: this fails. */
+   ASSERT_CMPBYTES (
+      ciphertext1_buf.data, ciphertext1_buf.len,
+      ciphertext2_buf.data, ciphertext2_buf.len);
+
+   _mongocrypt_buffer_cleanup (&ciphertext2_buf);
+   mongocrypt_binary_destroy (ciphertext2);
+   _mongocrypt_buffer_cleanup (&datakey2_buf);
+   mongocrypt_binary_destroy (datakey2);
+   _mongocrypt_buffer_cleanup (&ciphertext1_buf);
+   mongocrypt_binary_destroy (ciphertext1);
+   _mongocrypt_buffer_cleanup (&datakey1_buf);
+   mongocrypt_binary_destroy (datakey1);
+   mongocrypt_destroy (crypt);
+}
 
 void
 _mongocrypt_tester_install_data_key (_mongocrypt_tester_t *tester)
@@ -247,4 +341,5 @@ _mongocrypt_tester_install_data_key (_mongocrypt_tester_t *tester)
    INSTALL_TEST (_test_random_generator);
    INSTALL_TEST (_test_create_data_key);
    INSTALL_TEST (_test_datakey_custom_endpoint);
+   INSTALL_TEST (_test_datakey_custom_keymaterial);
 }
