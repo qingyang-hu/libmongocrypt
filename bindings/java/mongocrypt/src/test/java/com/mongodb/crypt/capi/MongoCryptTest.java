@@ -212,30 +212,26 @@ public class MongoCryptTest {
         mongoCrypt.close();
     }
 
-    public void testCipherGetInstance (String cipherName, boolean useIv) throws NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException {
+    public void testCipherGetInstance (String cipherName, boolean useIv) throws NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchAlgorithmException {
         System.out.println ("Test for cipher '" + cipherName + "' ... begin");
-        try {
-            byte[] key = new byte[32];
-            SecretKeySpec secretKeySpec = new SecretKeySpec(key, "AES");
-            Cipher cipher = Cipher.getInstance(cipherName);
-            if (useIv) {
-                byte[] iv = new byte[16];
-                IvParameterSpec ivParameterSpec = new IvParameterSpec(iv);
-                cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, ivParameterSpec);   
-            } else {
-                cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);   
-            }
-            System.out.println ("OK");
-        } catch (NoSuchAlgorithmException nsae) {
-            System.out.println ("NoSuchAlgorithmException: ");
-            System.out.println (nsae.getMessage());
+
+        byte[] key = new byte[32];
+        SecretKeySpec secretKeySpec = new SecretKeySpec(key, "AES");
+        Cipher cipher = Cipher.getInstance(cipherName);
+        if (useIv) {
+            byte[] iv = new byte[16];
+            IvParameterSpec ivParameterSpec = new IvParameterSpec(iv);
+            cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, ivParameterSpec);   
+        } else {
+            cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);   
         }
+        System.out.println ("OK");
+
         System.out.println ("Test for cipher '" + cipherName + "' ... end");
     }
 
     @Test
-    public void testSupportedCipherModes () throws NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException {
-        testCipherGetInstance("foo", true);
+    public void testSupportedCipherModes () throws NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, NoSuchAlgorithmException {
         testCipherGetInstance("AES/CBC/NoPadding", true);
         testCipherGetInstance("AES/CTR/NoPadding", true);
         testCipherGetInstance("AES/ECB/NoPadding", false);
