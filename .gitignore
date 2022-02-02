@@ -50,3 +50,5 @@ src/mongocrypt-export.h
 VERSION_CURRENT
 
 .csfle
+
+*.class
