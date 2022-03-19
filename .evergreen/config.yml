@@ -68,6 +68,13 @@ functions:
           ./.evergreen/linker-tests.sh
           ./.evergreen/pkgconfig-tests.sh
 
+  "build":
+    - command: "shell.exec"
+      params:
+        script: |-
+          set -o errexit
+          set -o xtrace
+          ${compile_env|} ./libmongocrypt/.evergreen/build_all.sh
 
   "create packages and repos":
     - command: "shell.exec"
@@ -293,6 +300,16 @@ tasks:
   - func: "build and test"
   - func: "tar and upload libmongocrypt libraries"
   - func: "create packages and repos"
+
+- name: build
+  depends_on:
+  - variant: ubuntu2004-64
+    name: prep-c-driver-source
+  commands:
+  - func: "fetch source"
+  - func: "build"
+    vars:
+      compile_env: DO_NOT_BUILD_TESTS="ON"
 
 - name: clang-tidy
   depends_on:
@@ -1089,4 +1106,4 @@ buildvariants:
   expansions:
     compile_env: WINDOWS_32BIT=ON
   tasks:
-  - build-and-test-and-upload
+  - build
