@@ -26,12 +26,13 @@ cd $evergreen_root
 command -v $CMAKE || (echo "CMake could not be found...aborting!"; exit 1)
 
 # Build and install libmongocrypt.
-if [ -d "libmongocrypt/cmake-build" ]; then
-    echo "Found directory: libmongocrypt/cmake-build. Removing."
-    rm -rf libmongocrypt/cmake-build
-    mkdir -p libmongocrypt/cmake-build
+cd libmongocrypt
+if [ -d "cmake-build" ]; then
+    echo "Found directory: cmake-build. Removing."
+    rm -rf cmake-build
 fi
-cd libmongocrypt/cmake-build
+mkdir cmake-build
+cd cmake-build
 
 ADDITIONAL_CMAKE_FLAGS="$ADDITIONAL_CMAKE_FLAGS -DENABLE_MORE_WARNINGS_AS_ERRORS=ON"
 
