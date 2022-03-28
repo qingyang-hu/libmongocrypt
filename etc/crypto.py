@@ -8,10 +8,41 @@ MAC_KEY_LENGTH = 32
 HMAC_SHA256_TAG_LENGTH = 32
 IV_LENGTH = 16
 
-def hmacsha256 (key, input):
+def _hmacsha256 (key, input):
     hm = hmac.HMAC(key, hashes.SHA256())
     hm.update (input)
     return hm.finalize()
+
+
+def fle2_encrypt (M, Ke, IV):
+    """
+    Compute 
+    S = AES-CTR.Enc(Ke, IV, M)
+
+    Output 
+    C = IV || S
+    """
+    assert (len(Ke) == ENCRYPTION_KEY_LENGTH)
+    assert (len(IV) == IV_LENGTH)
+
+    # S = AES-CTR.Enc(Ke, IV, M)
+    cipher = Cipher(algorithms.AES(Ke), modes.CTR(IV))
+    encryptor = cipher.encryptor()
+    S = encryptor.update(M) + encryptor.finalize()
+
+    C = IV + S
+    return C
+
+def fle2_decrypt (C, Ke):
+    assert (len(Ke) == ENCRYPTION_KEY_LENGTH)
+    assert (len(C) > IV_LENGTH)
+
+    IV = C[0:16]
+    # S = AES-CTR.Enc(Ke, IV, M)
+    cipher = Cipher(algorithms.AES(Ke), modes.CTR(IV))
+    encryptor = cipher.decryptor()
+    M = encryptor.update(C[16:]) + encryptor.finalize()
+    return M
 
 def fle2aead_encrypt(M, Ke, IV, Km, AD):
     """
@@ -29,7 +60,7 @@ def fle2aead_encrypt(M, Ke, IV, Km, AD):
     S = encryptor.update(M) + encryptor.finalize()
 
     # T = HMAC-SHA256(Km, AD || IV || S)
-    T = hmacsha256 (Km, AD + IV + S)
+    T = _hmacsha256 (Km, AD + IV + S)
 
     # C = IV || S || T
     C = IV + S + T
@@ -47,7 +78,7 @@ def fle2aead_decrypt(C, Km, AD, Ke):
     T = C[-HMAC_SHA256_TAG_LENGTH:]
 
     # Compute T' = HMAC-SHA256(Km, AD || IV || S)
-    Tp = hmacsha256 (Km, AD + IV + S)
+    Tp = _hmacsha256 (Km, AD + IV + S)
     if Tp != T:
         raise Exception("decryption error")
 
@@ -60,4 +91,4 @@ def fle2aead_decrypt(C, Km, AD, Ke):
 
 
 def ServerDataEncryptionLevel1Token (rootKey):
-    return hmacsha256 (rootKey, struct.pack("<Q", 3))
+    return _hmacsha256 (rootKey, struct.pack("<Q", 3))

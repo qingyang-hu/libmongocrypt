@@ -7,6 +7,15 @@ class TestCrypto (unittest.TestCase):
         expect = bytes.fromhex("d915ccc1eb81687fb5fc5b799f48c99fbe17e7a011a46a48901b9ae3d790656b")
         self.assertEqual (crypto.ServerDataEncryptionLevel1Token (rootKey), expect)
 
+    def test_fle2_encrypt_decrypt (self):
+        IV = bytes.fromhex("918ab83c8966995dfb528a0020d9bb10")
+        Ke = bytes.fromhex(
+            "c0b091fd93dfbb2422e53553f971d8127f3731058ba67f32b1549c53fce4120e")
+        got_C = crypto.fle2_encrypt (b"foobar", Ke, IV)
+        got_M = crypto.fle2_decrypt (got_C, Ke)
+        self.assertEqual (got_M, b"foobar")
+
+
     def test_fle2_aead_encrypt(self):
         AD = bytes.fromhex("99f05406f40d1af74cc737a96c1932fdec90")
         IV = bytes.fromhex("918ab83c8966995dfb528a0020d9bb10")
