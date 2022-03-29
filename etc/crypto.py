@@ -8,8 +8,9 @@ MAC_KEY_LENGTH = 32
 HMAC_SHA256_TAG_LENGTH = 32
 IV_LENGTH = 16
 
-def _hmacsha256 (key, input):
-    hm = hmac.HMAC(key, hashes.SHA256())
+def _hmacsha256 (Km, input):
+    assert (len(Km) == MAC_KEY_LENGTH)
+    hm = hmac.HMAC(Km, hashes.SHA256())
     hm.update (input)
     return hm.finalize()
 
