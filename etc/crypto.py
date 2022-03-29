@@ -48,11 +48,11 @@ def fle2_decrypt (C, Ke):
     assert (len(Ke) == ENCRYPTION_KEY_LENGTH)
     assert (len(C) > IV_LENGTH)
 
-    IV = C[0:16]
+    IV = C[0:IV_LENGTH]
     # S = AES-CTR.Enc(Ke, IV, M)
     cipher = Cipher(algorithms.AES(Ke), modes.CTR(IV))
     encryptor = cipher.decryptor()
-    M = encryptor.update(C[16:]) + encryptor.finalize()
+    M = encryptor.update(C[IV_LENGTH:]) + encryptor.finalize()
     return M
 
 def fle2aead_encrypt(M, Ke, IV, Km, AD):
