@@ -7,6 +7,7 @@ ENCRYPTION_KEY_LENGTH = 32
 MAC_KEY_LENGTH = 32
 HMAC_SHA256_TAG_LENGTH = 32
 IV_LENGTH = 16
+DEK_LENGTH = 96
 
 def _hmacsha256 (Km, input):
     assert (len(Km) == MAC_KEY_LENGTH)
@@ -14,6 +15,15 @@ def _hmacsha256 (Km, input):
     hm.update (input)
     return hm.finalize()
 
+class DEK ():
+    """
+    Class representing a Data Encryption Key (DEK)
+    """
+    def __init__ (self, bytesIn):
+        assert (len(bytesIn) == DEK_LENGTH)
+        self.Ke = bytesIn[0:32]
+        self.Km = bytesIn[32:64]
+        self.TokenKey = bytesIn[64:96] # for FLE 2
 
 def fle2_encrypt (M, Ke, IV):
     """
