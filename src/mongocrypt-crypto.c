@@ -202,6 +202,11 @@ _mongocrypt_fle2aead_calculate_ciphertext_len (uint32_t plaintext_len)
    return MONGOCRYPT_IV_LEN + plaintext_len + MONGOCRYPT_HMAC_LEN;
 }
 
+uint32_t
+_mongocrypt_fle2_calculate_ciphertext_len (uint32_t plaintext_len) {
+   return 0;
+}
+
 
 /* ----------------------------------------------------------------------------
  *
@@ -232,6 +237,11 @@ _mongocrypt_fle2aead_calculate_plaintext_len (uint32_t ciphertext_len)
    /* FLE2 AEAD uses CTR mode. CTR mode does not pad. */
    BSON_ASSERT (ciphertext_len >= MONGOCRYPT_IV_LEN + MONGOCRYPT_HMAC_LEN);
    return ciphertext_len - MONGOCRYPT_IV_LEN - MONGOCRYPT_HMAC_LEN;
+}
+
+uint32_t
+_mongocrypt_fle2_calculate_plaintext_len (uint32_t ciphertext_len) {
+   return 0;
 }
 
 /* ----------------------------------------------------------------------------
@@ -1310,4 +1320,25 @@ _mongocrypt_fle2aead_do_decryption (_mongocrypt_crypto_t *crypto,
    }
 
    return true;
+}
+
+bool
+_mongocrypt_fle2_do_encryption (_mongocrypt_crypto_t *crypto,
+                                    const _mongocrypt_buffer_t *iv,
+                                    const _mongocrypt_buffer_t *key,
+                                    const _mongocrypt_buffer_t *plaintext,
+                                    _mongocrypt_buffer_t *ciphertext,
+                                    uint32_t *bytes_written,
+                                    mongocrypt_status_t *status) {
+   return false;
+}
+
+bool
+_mongocrypt_fle2_do_decryption (_mongocrypt_crypto_t *crypto,
+                                    const _mongocrypt_buffer_t *key,
+                                    const _mongocrypt_buffer_t *ciphertext,
+                                    _mongocrypt_buffer_t *plaintext,
+                                    uint32_t *bytes_written,
+                                    mongocrypt_status_t *status) {
+   return false;
 }

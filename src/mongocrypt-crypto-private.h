@@ -49,6 +49,11 @@ _mongocrypt_calculate_ciphertext_len (uint32_t plaintext_len);
 uint32_t
 _mongocrypt_fle2aead_calculate_ciphertext_len (uint32_t plaintext_len);
 
+/* _mongocrypt_fle2_calculate_ciphertext_len returns the required length of
+ * the ciphertext for _mongocrypt_fle2_do_encryption. */
+uint32_t
+_mongocrypt_fle2_calculate_ciphertext_len (uint32_t plaintext_len);
+
 uint32_t
 _mongocrypt_calculate_plaintext_len (uint32_t ciphertext_len);
 
@@ -56,6 +61,11 @@ _mongocrypt_calculate_plaintext_len (uint32_t ciphertext_len);
  * the plaintext for _mongocrypt_fle2aead_do_decryption. */
 uint32_t
 _mongocrypt_fle2aead_calculate_plaintext_len (uint32_t ciphertext_len);
+
+/* _mongocrypt_fle2_calculate_plaintext_len returns the required length of
+ * the plaintext for _mongocrypt_fle2_do_decryption. */
+uint32_t
+_mongocrypt_fle2_calculate_plaintext_len (uint32_t ciphertext_len);
 
 bool
 _mongocrypt_do_encryption (_mongocrypt_crypto_t *crypto,
@@ -103,6 +113,28 @@ _mongocrypt_fle2aead_do_encryption (_mongocrypt_crypto_t *crypto,
 bool
 _mongocrypt_fle2aead_do_decryption (_mongocrypt_crypto_t *crypto,
                                     const _mongocrypt_buffer_t *associated_data,
+                                    const _mongocrypt_buffer_t *key,
+                                    const _mongocrypt_buffer_t *ciphertext,
+                                    _mongocrypt_buffer_t *plaintext,
+                                    uint32_t *bytes_written,
+                                    mongocrypt_status_t *status)
+   MONGOCRYPT_WARN_UNUSED_RESULT;
+
+/* _mongocrypt_fle2_do_encryption does non-AEAD encryption.
+ * Note: Attempting to encrypt a 0 length plaintext is an error.
+ */
+bool
+_mongocrypt_fle2_do_encryption (_mongocrypt_crypto_t *crypto,
+                                    const _mongocrypt_buffer_t *iv,
+                                    const _mongocrypt_buffer_t *key,
+                                    const _mongocrypt_buffer_t *plaintext,
+                                    _mongocrypt_buffer_t *ciphertext,
+                                    uint32_t *bytes_written,
+                                    mongocrypt_status_t *status)
+   MONGOCRYPT_WARN_UNUSED_RESULT;
+
+bool
+_mongocrypt_fle2_do_decryption (_mongocrypt_crypto_t *crypto,
                                     const _mongocrypt_buffer_t *key,
                                     const _mongocrypt_buffer_t *ciphertext,
                                     _mongocrypt_buffer_t *plaintext,
