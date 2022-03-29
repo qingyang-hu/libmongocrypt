@@ -57,6 +57,15 @@ class Payload7EncryptedData:
         uint8_t[64] esc;  // ESCDerivedFromDataTokenAndCounter
         uint8_t[64] ecc;  // ECCDerivedFromDataTokenAndCounter
     }
+    There are some discrepencies in the original struct definition. Here is a modified form:
+    struct {
+        uint64_t length; // length of clientEncryptedValue.
+        uint8_t[length] clientEncryptedValue; // UserKeyId || EncryptAEAD(K_KeyId, value, associated_data=K_KeyId)
+        uint64_t counter;
+        uint8_t[64] edc;  // EDCDerivedFromDataTokenAndCounter
+        uint8_t[64] esc;  // ESCDerivedFromDataTokenAndCounter
+        uint8_t[64] ecc;  // ECCDerivedFromDataTokenAndCounter
+    } ServerValue
     """
     def __init__ (self, cipherText : bytes, counter : int, edc : bytes, esc : bytes, ecc : bytes):
         self.cipherText = cipherText
