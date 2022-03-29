@@ -766,6 +766,7 @@ _test_fle2_roundtrip (_mongocrypt_tester_t *tester)
        .plaintext = "7465737431",
        .ciphertext = "918ab83c8966995dfb528a0020d9bb1070cead40b0",
        .bytes_written_expected = 22},
+#include "data/fle2.cstructs"
       {0}};
    fle2_aead_roundtrip_test_t *test;
 
