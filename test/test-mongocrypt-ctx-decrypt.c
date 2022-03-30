@@ -17,6 +17,7 @@
 #include "mongocrypt-ctx-private.h"
 #include "mongocrypt.h"
 #include "test-mongocrypt.h"
+#include "test-mongocrypt-assert-match-bson.h"
 
 static void
 _test_explicit_decrypt_init (_mongocrypt_tester_t *tester)
@@ -314,6 +315,77 @@ _test_decrypt_per_ctx_credentials_local (_mongocrypt_tester_t *tester)
    mongocrypt_destroy (crypt);
 }
 
+static void create_key_document (_mongocrypt_tester_t *tester, mongocrypt_t *crypt, _mongocrypt_buffer_t *keyMaterial, _mongocrypt_buffer_t *out) {
+   mongocrypt_ctx_t *ctx;
+   bson_t *keyMaterial_bson;
+   mongocrypt_binary_t *keyMaterial_bin;
+   mongocrypt_binary_t *keyDocument_bin;
+
+   keyMaterial_bson = BCON_NEW ("keyMaterial", BCON_BIN (BSON_SUBTYPE_BINARY, keyMaterial->data, keyMaterial->len));
+   keyMaterial_bin = mongocrypt_binary_new_from_data ((uint8_t*) bson_get_data (keyMaterial_bson), keyMaterial_bson->len);
+   
+   ctx = mongocrypt_ctx_new (crypt);
+   ASSERT_OK (mongocrypt_ctx_setopt_key_encryption_key (ctx, TEST_BSON ("{'provider': 'local'}")), ctx);
+   ASSERT_OK (mongocrypt_ctx_setopt_key_material (ctx, keyMaterial_bin), ctx);
+   ASSERT_OK (mongocrypt_ctx_datakey_init (ctx), ctx);
+   _mongocrypt_tester_run_ctx_to (tester, ctx, MONGOCRYPT_CTX_READY);
+   keyDocument_bin = mongocrypt_binary_new ();
+   ASSERT_OK (mongocrypt_ctx_finalize (ctx, keyDocument_bin), ctx);
+
+   _mongocrypt_buffer_copy_from_binary (out, keyDocument_bin);
+
+   bson_destroy (keyMaterial_bson);
+   mongocrypt_binary_destroy (keyMaterial_bin);
+   mongocrypt_binary_destroy (keyDocument_bin);
+   mongocrypt_ctx_destroy (ctx);
+}
+
+static void _test_decrypt_fle2 (_mongocrypt_tester_t *tester) {
+   mongocrypt_t *crypt = _mongocrypt_tester_mongocrypt ();
+   _mongocrypt_buffer_t S_Key;
+   _mongocrypt_buffer_t K_Key;
+   _mongocrypt_buffer_t S_Key_document;
+   _mongocrypt_buffer_t K_Key_document;
+
+   _mongocrypt_buffer_copy_from_hex (&S_Key, "7dbfebc619aa68a659f64b8e23ccd21644ac326cb74a26840c3d2420176c40ae088294d00ad6cae9684237b21b754cf503f085c25cd320bf035c3417416e1e6fe3d9219f79586582112740b2add88e1030d91926ae8afc13ee575cfb8bb965b7");
+   _mongocrypt_buffer_copy_from_hex (&K_Key, "a7ddbc4c8be00d51f68d9d8e485f351c8edc8d2206b24d8e0e1816d005fbe520e489125047d647b0d8684bfbdbf09c304085ed086aba6c2b2b1677ccc91ced8847a733bf5e5682c84b3ee7969e4a5fe0e0c21e5e3ee190595a55f83147d8de2a");
+
+   create_key_document (tester, crypt, &S_Key, &S_Key_document);
+   create_key_document (tester, crypt, &K_Key, &K_Key_document);
+
+   /* Test success with an FLE2IndexedEqualityEncryptedValue payload. */
+   {
+      mongocrypt_ctx_t *ctx;
+      mongocrypt_binary_t *out;
+      bson_t out_bson;
+
+      ctx = mongocrypt_ctx_new (crypt);
+      ASSERT_OK (mongocrypt_ctx_decrypt_init (ctx, TEST_BSON ("{'plainText':'sample','encrypted':{'$binary':{'base64':'BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4S4mm5vId01BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx4yj05Ou4D6yZUmYfVKmEljge16NCxKm7Ir9gvmQsp8x1wqGBzpndA6gkqFxsxfvQ/cIqOwMW9dGTTWsfKge+jYkCUIFMfms+XyC/8evQhjjA+qR6eEmV+N/kwpR7Q7TJe0lwU5kw2kSe3/KiPKRZZTbn8znadvycfJ0cCWGad9SQ==','subType':'6'}},'__safeContent__':[{'$binary':{'base64':'ThpoKfQ8AkOzkFfNC1+9PF0pY2nIzfXvRdxQgjkNbBw=','subType':'0'}}]}")), ctx);
+      /* The first transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests S_Key. */
+      ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_NEED_MONGO_KEYS);
+      ASSERT_OK (mongocrypt_ctx_mongo_feed (ctx, _mongocrypt_buffer_as_binary (&S_Key_document)), ctx);
+      ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
+      /* The second transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests S_Key. */
+      ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_NEED_MONGO_KEYS);
+      ASSERT_OK (mongocrypt_ctx_mongo_feed (ctx, _mongocrypt_buffer_as_binary (&K_Key_document)), ctx);
+      ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
+      ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_READY);
+      out = mongocrypt_binary_new ();
+      ASSERT_OK (mongocrypt_ctx_finalize (ctx, out), ctx);
+      ASSERT (_mongocrypt_binary_to_bson (out, &out_bson));
+      _assert_match_bson (&out_bson, TMP_BSON ("{'plainText': 'sample', 'encrypted': 'value123'}"));
+      mongocrypt_binary_destroy (out);
+      mongocrypt_ctx_destroy (ctx);
+   }
+   
+
+   _mongocrypt_buffer_cleanup (&K_Key_document);
+   _mongocrypt_buffer_cleanup (&S_Key_document);
+   _mongocrypt_buffer_cleanup (&K_Key);
+   _mongocrypt_buffer_cleanup (&S_Key);
+   mongocrypt_destroy (crypt);
+}
+
 void
 _mongocrypt_tester_install_ctx_decrypt (_mongocrypt_tester_t *tester)
 {
@@ -325,4 +397,5 @@ _mongocrypt_tester_install_ctx_decrypt (_mongocrypt_tester_t *tester)
    INSTALL_TEST (_test_decrypt_empty_binary);
    INSTALL_TEST (_test_decrypt_per_ctx_credentials);
    INSTALL_TEST (_test_decrypt_per_ctx_credentials_local);
+   INSTALL_TEST (_test_decrypt_fle2);
 }
