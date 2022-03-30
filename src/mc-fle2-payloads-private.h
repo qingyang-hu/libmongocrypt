@@ -19,6 +19,7 @@
 
 #include "mongocrypt-buffer-private.h"
 #include "mongocrypt-status-private.h"
+#include "mongocrypt-crypto-private.h"
 
 /**
  * FLE2IndexedEqualityEncryptedValue created server side.
@@ -30,10 +31,10 @@ mc_FLE2IndexedEqualityEncryptedValue_t* mc_FLE2IndexedEqualityEncryptedValue_new
 bool mc_FLE2IndexedEqualityEncryptedValue_parse (mc_FLE2IndexedEqualityEncryptedValue_t* ieev, _mongocrypt_buffer_t * buf, mongocrypt_status_t *status);
 
 const _mongocrypt_buffer_t* mc_FLE2IndexedEqualityEncryptedValue_get_S_KeyId (const mc_FLE2IndexedEqualityEncryptedValue_t* ieev, mongocrypt_status_t *status);
-const _mongocrypt_buffer_t* mc_FLE2IndexedEqualityEncryptedValue_add_S_Key (mc_FLE2IndexedEqualityEncryptedValue_t* ieev, _mongocrypt_buffer_t *S_Key, mongocrypt_status_t *status);
+bool mc_FLE2IndexedEqualityEncryptedValue_add_S_Key (_mongocrypt_crypto_t *crypto, mc_FLE2IndexedEqualityEncryptedValue_t* ieev, _mongocrypt_buffer_t *S_Key, mongocrypt_status_t *status);
 
 const _mongocrypt_buffer_t* mc_FLE2IndexedEqualityEncryptedValue_get_K_KeyId (const mc_FLE2IndexedEqualityEncryptedValue_t* ieev, mongocrypt_status_t *status);
-const _mongocrypt_buffer_t* mc_FLE2IndexedEqualityEncryptedValue_add_K_Key (mc_FLE2IndexedEqualityEncryptedValue_t* ieev, _mongocrypt_buffer_t *K_Key, mongocrypt_status_t *status);
+bool mc_FLE2IndexedEqualityEncryptedValue_add_K_Key (_mongocrypt_crypto_t *crypto, mc_FLE2IndexedEqualityEncryptedValue_t* ieev, _mongocrypt_buffer_t *K_Key, mongocrypt_status_t *status);
 
 const _mongocrypt_buffer_t* mc_FLE2IndexedEqualityEncryptedValue_getClientValue (const mc_FLE2IndexedEqualityEncryptedValue_t* ieev, mongocrypt_status_t *status);
 
