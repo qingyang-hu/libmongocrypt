@@ -28,6 +28,8 @@ class TestPayload7 (unittest.TestCase):
         
         S_Key = bytes.fromhex("7dbfebc619aa68a659f64b8e23ccd21644ac326cb74a26840c3d2420176c40ae088294d00ad6cae9684237b21b754cf503f085c25cd320bf035c3417416e1e6fe3d9219f79586582112740b2add88e1030d91926ae8afc13ee575cfb8bb965b7")
         p7ed = p7.getEncryptedData (S_Key)
+        # Check the K_KeyId
+        self.assertEqual (p7ed.cipherText[0:16], bytes.fromhex("abcdefab123498761234123456789012"))
         self.assertEqual(p7ed.counter, 1)
         
 
