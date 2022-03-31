@@ -201,4 +201,7 @@ void
 _mongocrypt_key_broker_add_test_key (_mongocrypt_key_broker_t *kb,
                                      const _mongocrypt_buffer_t *key_id);
 
+/* _mongocrypt_key_broker_restart is used to request additional keys. It must only be called in the KB_DONE state. */
+bool _mongocrypt_key_broker_restart (_mongocrypt_key_broker_t *kb);
+
 #endif /* MONGOCRYPT_KEY_BROKER_PRIVATE_H */
