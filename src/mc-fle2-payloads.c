@@ -93,6 +93,7 @@ mc_FLE2IndexedEqualityEncryptedValue_parse (
       CLIENT_ERR ("mc_FLE2IndexedEqualityEncryptedValue_parse failed to copy data for S_KeyId");
       return false;
    }
+   ieev->S_KeyId.subtype = BSON_SUBTYPE_UUID;
    offset += 16;
 
    /* Read original_bson_type. */
@@ -198,6 +199,7 @@ mc_FLE2IndexedEqualityEncryptedValue_add_S_Key (
       return false;
    }
    offset += 16;
+   ieev->K_KeyId.subtype = BSON_SUBTYPE_UUID;
 
    /* Read ClientEncryptedValue. */
    if (offset + (length - 16) > ieev->Inner.len) {
