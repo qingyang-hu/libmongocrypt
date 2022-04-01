@@ -92,6 +92,76 @@ fail:
    return ret;
 }
 
+static bool
+_replace_FLE2IndexedEqualityEncryptedValue_with_plaintext (void *ctx,
+                                    _mongocrypt_buffer_t *in,
+                                    bson_value_t *out,
+                                    mongocrypt_status_t *status) {
+   bool ret = false;
+   _mongocrypt_key_broker_t *kb = ctx;
+   mc_FLE2IndexedEqualityEncryptedValue_t *ieev = mc_FLE2IndexedEqualityEncryptedValue_new ();
+   _mongocrypt_buffer_t S_Key = {0};
+   _mongocrypt_buffer_t K_Key = {0};
+
+   printf ("_replace_FLE2IndexedEqualityEncryptedValue_with_plaintext ... begin\n");
+
+   if (!mc_FLE2IndexedEqualityEncryptedValue_parse (ieev, in, status)) {
+      goto fail;
+   }
+
+   const _mongocrypt_buffer_t *S_KeyId = mc_FLE2IndexedEqualityEncryptedValue_get_S_KeyId (ieev, status);
+   if (!S_KeyId) {
+      goto fail;
+   }
+   
+   if (!_mongocrypt_key_broker_decrypted_key_by_id (kb, S_KeyId, &S_Key)) {
+      _mongocrypt_key_broker_status (kb, status);
+      goto fail;
+   }
+
+   /* Decrypt InnerEncrypted to get K_KeyId. */
+   if (!mc_FLE2IndexedEqualityEncryptedValue_add_S_Key (kb->crypt->crypto, ieev, &S_Key, status)) {
+      goto fail;
+   }
+
+   const _mongocrypt_buffer_t *K_KeyId = mc_FLE2IndexedEqualityEncryptedValue_get_K_KeyId (ieev, status);
+   if (!K_KeyId) {
+      goto fail;
+   }
+
+  if (!_mongocrypt_key_broker_decrypted_key_by_id (kb, K_KeyId, &K_Key)) {
+      _mongocrypt_key_broker_status (kb, status);
+      goto fail;
+   }
+
+   /* Decrypt ClientEncryptedValue. */
+   if (!mc_FLE2IndexedEqualityEncryptedValue_add_K_Key (kb->crypt->crypto, ieev, &K_Key, status)) {
+      goto fail;
+   }
+
+   const _mongocrypt_buffer_t *clientValue = mc_FLE2IndexedEqualityEncryptedValue_getClientValue (ieev, status);
+   if (!clientValue) {
+      goto fail;
+   }
+
+   uint8_t original_bson_type = mc_FLE2IndexedEqualityEncryptedValue_get_original_bson_type (ieev, status);
+   if (0 == original_bson_type) {
+      goto fail;
+   }
+
+   if (!_mongocrypt_buffer_to_bson_value ((_mongocrypt_buffer_t*) clientValue, original_bson_type, out)) {
+      CLIENT_ERR ("decrypted clientValue is not valid BSON");
+      goto fail;
+   }
+
+   printf ("_replace_FLE2IndexedEqualityEncryptedValue_with_plaintext ... end\n");
+   ret = true;
+fail:
+   _mongocrypt_buffer_cleanup (&K_Key);
+   _mongocrypt_buffer_cleanup (&S_Key);
+   mc_FLE2IndexedEqualityEncryptedValue_destroy (ieev);
+   return ret;
+}
 
 static bool
 _finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
@@ -139,9 +209,9 @@ _finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
       bson_iter_init (&iter, &intermediate_bson);
       bson_init (&final_bson);
       res = _mongocrypt_transform_binary_in_bson (
-         _replace_ciphertext_with_plaintext,
+         _replace_FLE2IndexedEqualityEncryptedValue_with_plaintext,
          &ctx->kb,
-         TRAVERSE_MATCH_CIPHERTEXT,
+         TRAVERSE_MATCH_FLE2IndexedEqualityEncryptedValue,
          &iter,
          &final_bson,
          ctx->status);
@@ -330,7 +400,7 @@ _collect_K_KeyID_from_FLE2IndexedEqualityEncryptedValue (void *ctx, _mongocrypt_
       goto fail;
    }
 
-   /* Decrypt Inner to get K_KeyId. */
+   /* Decrypt InnerEncrypted to get K_KeyId. */
    if (!mc_FLE2IndexedEqualityEncryptedValue_add_S_Key (kb->crypt->crypto, ieev, &S_Key, status)) {
       goto fail;
    }
