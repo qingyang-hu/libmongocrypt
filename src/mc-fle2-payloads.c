@@ -33,7 +33,7 @@
  * struct {
  *   uint64_t length; // sizeof(K_KeyId) + ClientEncryptedValue_length;
  *   uint8_t[16] K_KeyId;
- *   uint8_t[ClientEncryptedValue_length] ClientEncryptedValue; // EncryptAEAD(K_KeyId, ClientValue, associated_data=K_KeyId)
+ *   uint8_t[ClientEncryptedValue_length] ClientEncryptedValue; // EncryptAEAD(key=K_KeyId, plaintext=ClientValue, associated_data=K_KeyId)
  *   uint64_t counter;
  *   uint8_t[32] edc;  // EDCDerivedFromDataTokenAndContentionFactorToken
  *   uint8_t[32] esc;  // ESCDerivedFromDataTokenAndContentionFactorToken
