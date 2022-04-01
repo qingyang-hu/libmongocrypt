@@ -58,7 +58,7 @@ test_FLE2IndexedEqualityEncryptedValue_parse (_mongocrypt_tester_t *tester) {
    _mongocrypt_buffer_copy_from_hex (&input, "07123456781234987612341234567890120243bba14ddf42da823c33569f4689f465a606d2cea84e6b7468167d90ee12e269b9bc8774d41b16eed047cad03ca432762225810a66a1dce187d8ce044fb3d2a9e9100f8824502a3825e12db71e328f4e4ebb80fac9952661f54a98496381ed7a342c4a9bb22bf60be642ca7cc75c2a181ce99dd03a824a85c6cc5fbd0fdc22a3b0316f5d1934d6b1f2a07be8d890250814c7e6b3e5f20bff1ebd08638c0faa47a784995f8dfe4c2947b43b4c97b4970539930da449edff2a23ca4596536e7f339da76fc9c7c9d1c09619a77d49");
    ieev = mc_FLE2IndexedEqualityEncryptedValue_new ();
    ASSERT_OK_STATUS (mc_FLE2IndexedEqualityEncryptedValue_parse (ieev, &input, status), status);
-   ASSERT_FAILS_STATUS (mc_FLE2IndexedEqualityEncryptedValue_parse (ieev, &input, status), status, "cannot be called twice");
+   ASSERT_FAILS_STATUS (mc_FLE2IndexedEqualityEncryptedValue_parse (ieev, &input, status), status, "must not be called twice");
    mc_FLE2IndexedEqualityEncryptedValue_destroy (ieev);
    _mongocrypt_buffer_cleanup (&input);
    _mongocrypt_status_reset (status);
