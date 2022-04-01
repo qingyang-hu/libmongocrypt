@@ -284,6 +284,25 @@ _collect_S_KeyID_from_FLE2IndexedEqualityEncryptedValue (void *ctx, _mongocrypt_
    return ret;
 }
 
+static bool
+_mongo_done_keys (mongocrypt_ctx_t *ctx)
+{
+   (void) _mongocrypt_key_broker_docs_done (&ctx->kb);
+   return _mongocrypt_ctx_state_from_key_broker (ctx);
+}
+
+static bool
+_kms_done (mongocrypt_ctx_t *ctx)
+{
+   _mongocrypt_opts_kms_providers_t* kms_providers =
+      _mongocrypt_ctx_kms_providers(ctx);
+   if (!_mongocrypt_key_broker_kms_done (&ctx->kb, kms_providers)) {
+      BSON_ASSERT (!_mongocrypt_key_broker_status (&ctx->kb, ctx->status));
+      return _mongocrypt_ctx_fail (ctx);
+   }
+   return _mongocrypt_ctx_state_from_key_broker (ctx);
+}
+
 bool
 mongocrypt_ctx_decrypt_init (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *doc)
 {
@@ -320,6 +339,8 @@ mongocrypt_ctx_decrypt_init (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *doc)
    ctx->type = _MONGOCRYPT_TYPE_DECRYPT;
    ctx->vtable.finalize = _finalize;
    ctx->vtable.cleanup = _cleanup;
+   ctx->vtable.mongo_done_keys = _mongo_done_keys;
+   ctx->vtable.kms_done = _kms_done;
 
    _mongocrypt_buffer_copy_from_binary (&dctx->original_doc, doc);
    /* get keys. */
