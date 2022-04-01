@@ -351,7 +351,7 @@ static void create_key_document (_mongocrypt_tester_t *tester, mongocrypt_t *cry
 }
 
 static void _test_decrypt_fle2 (_mongocrypt_tester_t *tester) {
-   mongocrypt_t *crypt = _mongocrypt_tester_mongocrypt ();
+   mongocrypt_t *crypt = _mongocrypt_tester_mongocrypt (TESTER_MONGOCRYPT_DEFAULT);
    _mongocrypt_buffer_t S_Key;
    _mongocrypt_buffer_t S_KeyId;
    _mongocrypt_buffer_t S_Key_document;

@@ -1007,7 +1007,7 @@ static void _test_key_broker_restart (_mongocrypt_tester_t *tester) {
    mongocrypt_kms_ctx_t *kms;
 
    status = mongocrypt_status_new ();
-   crypt = _mongocrypt_tester_mongocrypt ();
+   crypt = _mongocrypt_tester_mongocrypt (TESTER_MONGOCRYPT_DEFAULT);
    kms_providers = &crypt->opts.kms_providers;
    _gen_uuid_and_key (tester, 1, &key_id1, &key_doc1);
    _gen_uuid_and_key (tester, 2, &key_id2, &key_doc2);
@@ -1064,7 +1064,7 @@ static void _test_key_broker_get_decrypted_key_while_requesting (_mongocrypt_tes
    mongocrypt_kms_ctx_t *kms;
 
    status = mongocrypt_status_new ();
-   crypt = _mongocrypt_tester_mongocrypt ();
+   crypt = _mongocrypt_tester_mongocrypt (TESTER_MONGOCRYPT_DEFAULT);
    kms_providers = &crypt->opts.kms_providers;
    _gen_uuid_and_key (tester, 1, &key_id1, &key_doc1);
    _mongocrypt_key_broker_init (&kb, crypt);
