@@ -315,7 +315,8 @@ _test_decrypt_per_ctx_credentials_local (_mongocrypt_tester_t *tester)
    mongocrypt_destroy (crypt);
 }
 
-static void create_key_document (_mongocrypt_tester_t *tester, mongocrypt_t *crypt, _mongocrypt_buffer_t *keyMaterial, _mongocrypt_buffer_t *out) {
+/* create_key_document creates a test key document from a keyMaterial and id. */
+static void create_key_document (_mongocrypt_tester_t *tester, mongocrypt_t *crypt, _mongocrypt_buffer_t *keyMaterial, _mongocrypt_buffer_t *key_id, _mongocrypt_buffer_t *out) {
    mongocrypt_ctx_t *ctx;
    bson_t *keyMaterial_bson;
    mongocrypt_binary_t *keyMaterial_bin;
@@ -332,7 +333,16 @@ static void create_key_document (_mongocrypt_tester_t *tester, mongocrypt_t *cry
    keyDocument_bin = mongocrypt_binary_new ();
    ASSERT_OK (mongocrypt_ctx_finalize (ctx, keyDocument_bin), ctx);
 
-   _mongocrypt_buffer_copy_from_binary (out, keyDocument_bin);
+   /* Replace the generated _id with the desired key_id. */
+   {
+      bson_t keyDocument_bson;
+      bson_t keyDocument_with_correct_id = BSON_INITIALIZER;
+
+      ASSERT (_mongocrypt_binary_to_bson (keyDocument_bin, &keyDocument_bson));
+      bson_copy_to_excluding_noinit (&keyDocument_bson, &keyDocument_with_correct_id, "_id", NULL);
+      BSON_APPEND_BINARY (&keyDocument_with_correct_id, "_id", BSON_SUBTYPE_UUID, key_id->data, key_id->len);
+      _mongocrypt_buffer_steal_from_bson (out, &keyDocument_with_correct_id);
+   }
 
    bson_destroy (keyMaterial_bson);
    mongocrypt_binary_destroy (keyMaterial_bin);
@@ -343,15 +353,18 @@ static void create_key_document (_mongocrypt_tester_t *tester, mongocrypt_t *cry
 static void _test_decrypt_fle2 (_mongocrypt_tester_t *tester) {
    mongocrypt_t *crypt = _mongocrypt_tester_mongocrypt ();
    _mongocrypt_buffer_t S_Key;
-   _mongocrypt_buffer_t K_Key;
+   _mongocrypt_buffer_t S_KeyId;
    _mongocrypt_buffer_t S_Key_document;
+   _mongocrypt_buffer_t K_Key;
+   _mongocrypt_buffer_t K_KeyId;
    _mongocrypt_buffer_t K_Key_document;
 
    _mongocrypt_buffer_copy_from_hex (&S_Key, "7dbfebc619aa68a659f64b8e23ccd21644ac326cb74a26840c3d2420176c40ae088294d00ad6cae9684237b21b754cf503f085c25cd320bf035c3417416e1e6fe3d9219f79586582112740b2add88e1030d91926ae8afc13ee575cfb8bb965b7");
+   _mongocrypt_buffer_copy_from_hex (&S_KeyId, "12345678123498761234123456789012");
+   create_key_document (tester, crypt, &S_Key, &S_KeyId, &S_Key_document);
    _mongocrypt_buffer_copy_from_hex (&K_Key, "a7ddbc4c8be00d51f68d9d8e485f351c8edc8d2206b24d8e0e1816d005fbe520e489125047d647b0d8684bfbdbf09c304085ed086aba6c2b2b1677ccc91ced8847a733bf5e5682c84b3ee7969e4a5fe0e0c21e5e3ee190595a55f83147d8de2a");
-
-   create_key_document (tester, crypt, &S_Key, &S_Key_document);
-   create_key_document (tester, crypt, &K_Key, &K_Key_document);
+   _mongocrypt_buffer_copy_from_hex (&K_KeyId, "ABCDEFAB123498761234123456789012");
+   create_key_document (tester, crypt, &K_Key, &K_KeyId, &K_Key_document);
 
    /* Test success with an FLE2IndexedEqualityEncryptedValue payload. */
    {
