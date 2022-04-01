@@ -112,6 +112,7 @@ _finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
    dctx = (_mongocrypt_ctx_decrypt_t *) ctx;
 
    if (!dctx->explicit) {
+      bson_t intermediate_bson;
       if (ctx->nothing_to_do) {
          _mongocrypt_buffer_to_binary (&dctx->original_doc, out);
          ctx->state = MONGOCRYPT_CTX_DONE;
@@ -123,6 +124,19 @@ _finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
       }
 
       bson_iter_init (&iter, &as_bson);
+      bson_init (&intermediate_bson);
+      res = _mongocrypt_transform_binary_in_bson (
+         _replace_ciphertext_with_plaintext,
+         &ctx->kb,
+         TRAVERSE_MATCH_CIPHERTEXT,
+         &iter,
+         &intermediate_bson,
+         ctx->status);
+      if (!res) {
+         return _mongocrypt_ctx_fail (ctx);
+      }
+
+      bson_iter_init (&iter, &intermediate_bson);
       bson_init (&final_bson);
       res = _mongocrypt_transform_binary_in_bson (
          _replace_ciphertext_with_plaintext,
@@ -132,8 +146,10 @@ _finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
          &final_bson,
          ctx->status);
       if (!res) {
+         bson_destroy (&intermediate_bson);
          return _mongocrypt_ctx_fail (ctx);
       }
+      bson_destroy (&intermediate_bson);
    } else {
       /* For explicit decryption, we just have a single value */
       bson_value_t value;
