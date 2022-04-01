@@ -18,6 +18,7 @@
 #include "mongocrypt-crypto-private.h"
 #include "mongocrypt-ctx-private.h"
 #include "mongocrypt-traverse-util-private.h"
+#include "mc-fle2-payloads-private.h"
 
 static bool
 _replace_ciphertext_with_plaintext (void *ctx,
@@ -258,6 +259,30 @@ mongocrypt_ctx_explicit_decrypt_init (mongocrypt_ctx_t *ctx,
    return _mongocrypt_ctx_state_from_key_broker (ctx);
 }
 
+static bool
+_collect_S_KeyID_from_FLE2IndexedEqualityEncryptedValue (void *ctx, _mongocrypt_buffer_t *in, mongocrypt_status_t *status) {
+   bool ret = false;
+   _mongocrypt_key_broker_t *kb = ctx;
+   mc_FLE2IndexedEqualityEncryptedValue_t *ieev = mc_FLE2IndexedEqualityEncryptedValue_new ();
+
+   if (!mc_FLE2IndexedEqualityEncryptedValue_parse (ieev, in, status)) {
+      goto fail;
+   }
+
+   const _mongocrypt_buffer_t *S_KeyId = mc_FLE2IndexedEqualityEncryptedValue_get_S_KeyId (ieev, status);
+   if (!S_KeyId) {
+      goto fail;
+   }
+
+   if (!_mongocrypt_key_broker_request_id (kb, S_KeyId)) {
+      return _mongocrypt_key_broker_status (kb, status);
+   }
+
+   ret = true;
+   fail:
+   mc_FLE2IndexedEqualityEncryptedValue_destroy (ieev);
+   return ret;
+}
 
 bool
 mongocrypt_ctx_decrypt_init (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *doc)
@@ -311,6 +336,35 @@ mongocrypt_ctx_decrypt_init (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *doc)
       return _mongocrypt_ctx_fail (ctx);
    }
 
+   if (!_mongocrypt_traverse_binary_in_bson (_collect_S_KeyID_from_FLE2IndexedEqualityEncryptedValue,
+                                             &ctx->kb,
+                                             TRAVERSE_MATCH_FLE2IndexedEqualityEncryptedValue,
+                                             &iter,
+                                             ctx->status)) {
+      return _mongocrypt_ctx_fail (ctx);
+   }
+
    (void) _mongocrypt_key_broker_requests_done (&ctx->kb);
+
+   // TODO: if all S_KeyId's are cached, then check for K_KeyId.
+   // if (ctx->kb.state == MONGOCRYPT_CTX_READY) {
+   //    if (!_mongocrypt_traverse_binary_in_bson (_collect_key_from_fle2_ciphertext_inner,
+   //                                              &ctx->kb_fle2_inner,
+   //                                              TRAVERSE_MATCH_CIPHERTEXT_FLE2,
+   //                                              &iter,
+   //                                              ctx->status)) {
+   //       return _mongocrypt_ctx_fail (ctx);
+   //    }
+   //    (void) _mongocrypt_key_broker_requests_done (&ctx->kb_fle2_inner);
+   //    return _mongocrypt_ctx_state_from_key_broker (ctx);
+   // }
+
+   /* TODO:
+    * 1. Do a second pass. If there are any matching S_Key's cached, decrypt the InnerEncrypted and add the request for the K_KeyId.
+    * 2. Override the mongo_done vtable method. Do the second pass there.
+    * 3. Open question: how do we add more requests to the key broker after transitioning to DONE?
+    *    Can we add an Inner key broker?
+    */
+
    return _mongocrypt_ctx_state_from_key_broker (ctx);
 }

@@ -40,12 +40,15 @@ _check_first_byte (uint8_t byte, traversal_match_t match)
 #define FIRST_BYTE_MARKING 0
 #define FIRST_BYTE_DETERMINISTIC 1
 #define FIRST_BYTE_RANDOMIZED 2
+#define FIRST_BYTE_FLE2IndexedEqualityEncryptedValue 7
 
    switch (match) {
    case TRAVERSE_MATCH_MARKING:
       return byte == FIRST_BYTE_MARKING;
    case TRAVERSE_MATCH_CIPHERTEXT:
       return byte == FIRST_BYTE_DETERMINISTIC || byte == FIRST_BYTE_RANDOMIZED;
+   case TRAVERSE_MATCH_FLE2IndexedEqualityEncryptedValue:
+      return byte == FIRST_BYTE_FLE2IndexedEqualityEncryptedValue;
    }
    return false;
 }
