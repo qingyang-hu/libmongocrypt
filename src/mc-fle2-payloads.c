@@ -49,6 +49,7 @@ struct _mc_FLE2IndexedEqualityEncryptedValue_t {
    _mongocrypt_buffer_t K_KeyId;
    _mongocrypt_buffer_t ClientValue;
    _mongocrypt_buffer_t ClientEncryptedValue;
+   uint8_t original_bson_type;
    bool parsed;
    bool inner_decrypted; // TODO: use a state, not booleans.
    bool client_value_decrypted;
@@ -101,6 +102,7 @@ mc_FLE2IndexedEqualityEncryptedValue_parse (
       CLIENT_ERR ("mc_FLE2IndexedEqualityEncryptedValue_parse expected byte length: %" PRIu32 " got: %" PRIu32, offset + 1, buf->len);
       return false;
    }
+   ieev->original_bson_type = buf->data[offset];
    offset += 1;
 
    /* Read InnerEncrypted. */
@@ -278,4 +280,12 @@ mc_FLE2IndexedEqualityEncryptedValue_destroy (
    _mongocrypt_buffer_cleanup (&ieev->ClientValue);
    _mongocrypt_buffer_cleanup (&ieev->ClientEncryptedValue);
    bson_free (ieev);
+}
+
+bson_type_t mc_FLE2IndexedEqualityEncryptedValue_get_original_bson_type (const mc_FLE2IndexedEqualityEncryptedValue_t* ieev, mongocrypt_status_t *status) {
+   if (!ieev->parsed) {
+      CLIENT_ERR ("mc_FLE2IndexedEqualityEncryptedValue_get_original_bson_type must be called after mc_FLE2IndexedEqualityEncryptedValue_parse");
+      return 0;
+   }
+   return ieev->original_bson_type;
 }

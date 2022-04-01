@@ -40,4 +40,7 @@ const _mongocrypt_buffer_t* mc_FLE2IndexedEqualityEncryptedValue_getClientValue 
 
 void mc_FLE2IndexedEqualityEncryptedValue_destroy (mc_FLE2IndexedEqualityEncryptedValue_t* ieev);
 
+/* mc_FLE2IndexedEqualityEncryptedValue_get_original_bson_type returns 0 on error. */
+bson_type_t mc_FLE2IndexedEqualityEncryptedValue_get_original_bson_type (const mc_FLE2IndexedEqualityEncryptedValue_t* ieev, mongocrypt_status_t *status);
+
 #endif /* MONGOCRYPT_INDEXED_EQUALIY_ENCRYPTED_VALUE_PRIVATE_H */
