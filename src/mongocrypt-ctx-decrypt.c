@@ -307,17 +307,10 @@ fail:
    return ret;
 }
 
-typedef struct {
-   _mongocrypt_key_broker_t *kb;
-   _mongocrypt_crypto_t *crypto;
-} _kb_and_crypto_t;
-
 static bool
-_collect_K_KeyID_from_FLE2IndexedEqualityEncryptedValue (void *_ctx, _mongocrypt_buffer_t *in, mongocrypt_status_t *status) {
+_collect_K_KeyID_from_FLE2IndexedEqualityEncryptedValue (void *ctx, _mongocrypt_buffer_t *in, mongocrypt_status_t *status) {
    bool ret = false;
-   _kb_and_crypto_t* ctx = _ctx;
-   _mongocrypt_key_broker_t *kb = ctx->kb;
-   _mongocrypt_crypto_t *crypto = ctx->crypto;
+   _mongocrypt_key_broker_t *kb = ctx;
    mc_FLE2IndexedEqualityEncryptedValue_t *ieev = mc_FLE2IndexedEqualityEncryptedValue_new ();
    _mongocrypt_buffer_t S_Key = {0};
 
@@ -338,7 +331,7 @@ _collect_K_KeyID_from_FLE2IndexedEqualityEncryptedValue (void *_ctx, _mongocrypt
    }
 
    /* Decrypt Inner to get K_KeyId. */
-   if (!mc_FLE2IndexedEqualityEncryptedValue_add_S_Key (crypto, ieev, &S_Key, status)) {
+   if (!mc_FLE2IndexedEqualityEncryptedValue_add_S_Key (kb->crypt->crypto, ieev, &S_Key, status)) {
       goto fail;
    }
 
@@ -390,14 +383,13 @@ static bool _check_for_K_KeyId (mongocrypt_ctx_t* ctx) {
       bson_t as_bson;
       bson_iter_t iter;
       _mongocrypt_ctx_decrypt_t *dctx = (_mongocrypt_ctx_decrypt_t *) ctx;
-      _kb_and_crypto_t kb_and_crypto = { .kb = &ctx->kb, .crypto = ctx->crypt->crypto };
       if (!_mongocrypt_buffer_to_bson (&dctx->original_doc, &as_bson)) {
          return _mongocrypt_ctx_fail_w_msg (ctx, "error converting original_doc to bson");
       }
       bson_iter_init (&iter, &as_bson);
 
       if (!_mongocrypt_traverse_binary_in_bson (_collect_K_KeyID_from_FLE2IndexedEqualityEncryptedValue,
-                                                &kb_and_crypto,
+                                                &ctx->kb,
                                                 TRAVERSE_MATCH_FLE2IndexedEqualityEncryptedValue,
                                                 &iter,
                                                 ctx->status)) {
