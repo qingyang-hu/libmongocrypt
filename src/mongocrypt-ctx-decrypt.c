@@ -274,20 +274,136 @@ _collect_S_KeyID_from_FLE2IndexedEqualityEncryptedValue (void *ctx, _mongocrypt_
       goto fail;
    }
 
+   { 
+      char *hex = _mongocrypt_buffer_to_hex ((_mongocrypt_buffer_t*) S_KeyId);
+      printf ("... adding request for S_KeyId: %s\n", hex);
+      bson_free (hex);
+   }
+
    if (!_mongocrypt_key_broker_request_id (kb, S_KeyId)) {
-      return _mongocrypt_key_broker_status (kb, status);
+      _mongocrypt_key_broker_status (kb, status);
+      goto fail;
    }
 
    ret = true;
-   fail:
+fail:
    mc_FLE2IndexedEqualityEncryptedValue_destroy (ieev);
    return ret;
+}
+
+typedef struct {
+   _mongocrypt_key_broker_t *kb;
+   _mongocrypt_crypto_t *crypto;
+} _kb_and_crypto_t;
+
+static bool
+_collect_K_KeyID_from_FLE2IndexedEqualityEncryptedValue (void *_ctx, _mongocrypt_buffer_t *in, mongocrypt_status_t *status) {
+   bool ret = false;
+   _kb_and_crypto_t* ctx = _ctx;
+   _mongocrypt_key_broker_t *kb = ctx->kb;
+   _mongocrypt_crypto_t *crypto = ctx->crypto;
+   mc_FLE2IndexedEqualityEncryptedValue_t *ieev = mc_FLE2IndexedEqualityEncryptedValue_new ();
+   _mongocrypt_buffer_t S_Key = {0};
+
+   printf ("_collect_K_KeyID_from_FLE2IndexedEqualityEncryptedValue ... begin\n");
+
+   if (!mc_FLE2IndexedEqualityEncryptedValue_parse (ieev, in, status)) {
+      goto fail;
+   }
+
+   const _mongocrypt_buffer_t *S_KeyId = mc_FLE2IndexedEqualityEncryptedValue_get_S_KeyId (ieev, status);
+   if (!S_KeyId) {
+      goto fail;
+   }
+   
+   if (!_mongocrypt_key_broker_decrypted_key_by_id (kb, S_KeyId, &S_Key)) {
+      _mongocrypt_key_broker_status (kb, status);
+      goto fail;
+   }
+
+   /* Decrypt Inner to get K_KeyId. */
+   if (!mc_FLE2IndexedEqualityEncryptedValue_add_S_Key (crypto, ieev, &S_Key, status)) {
+      goto fail;
+   }
+
+   /* Add request for K_KeyId. */
+   const _mongocrypt_buffer_t *K_KeyId = mc_FLE2IndexedEqualityEncryptedValue_get_K_KeyId (ieev, status);
+   if (!K_KeyId) {
+      goto fail;
+   }
+
+   { 
+      char *hex = _mongocrypt_buffer_to_hex ((_mongocrypt_buffer_t*) K_KeyId);
+      printf (" ... adding request for K_KeyId: %s\n", hex);
+      bson_free (hex);
+   }
+
+   if (!_mongocrypt_key_broker_request_id (kb, K_KeyId)) {
+      _mongocrypt_key_broker_status (kb, status);
+      goto fail;
+   }
+
+   printf ("_collect_K_KeyID_from_FLE2IndexedEqualityEncryptedValue ... end\n");
+   ret = true;
+fail:
+   _mongocrypt_buffer_cleanup (&S_Key);
+   mc_FLE2IndexedEqualityEncryptedValue_destroy (ieev);
+   return ret;
+}
+
+
+/* _check_for_K_KeyId must be called after requesting all S_KeyId.
+ * _check_for_K_KeyId must be called after any call that could transition ctx->kb.state to KB_DONE.
+ * TODO: only check for S_KeyId once. Add a boolean to skip subsequent unnecessary checks.
+ */
+static bool _check_for_K_KeyId (mongocrypt_ctx_t* ctx) {
+   printf ("_check_for_K_KeyId ... begin\n");
+   if (ctx->kb.state != KB_DONE) {
+      printf (" ctx->kb.state != KB_DONE\n");
+      printf ("_check_for_K_KeyId ... end\n");
+      return true;
+   }
+
+   if (!_mongocrypt_key_broker_restart (&ctx->kb)) {
+      _mongocrypt_key_broker_status (&ctx->kb, ctx->status);
+      return _mongocrypt_ctx_fail (ctx);
+   }
+
+   printf ("Key broker is done, checking for K_KeyId\n");
+   {
+      bson_t as_bson;
+      bson_iter_t iter;
+      _mongocrypt_ctx_decrypt_t *dctx = (_mongocrypt_ctx_decrypt_t *) ctx;
+      _kb_and_crypto_t kb_and_crypto = { .kb = &ctx->kb, .crypto = ctx->crypt->crypto };
+      if (!_mongocrypt_buffer_to_bson (&dctx->original_doc, &as_bson)) {
+         return _mongocrypt_ctx_fail_w_msg (ctx, "error converting original_doc to bson");
+      }
+      bson_iter_init (&iter, &as_bson);
+
+      if (!_mongocrypt_traverse_binary_in_bson (_collect_K_KeyID_from_FLE2IndexedEqualityEncryptedValue,
+                                                &kb_and_crypto,
+                                                TRAVERSE_MATCH_FLE2IndexedEqualityEncryptedValue,
+                                                &iter,
+                                                ctx->status)) {
+         return _mongocrypt_ctx_fail (ctx);
+      }
+   }
+
+   if (!_mongocrypt_key_broker_requests_done (&ctx->kb)) {
+      _mongocrypt_key_broker_status (&ctx->kb, ctx->status);
+      return _mongocrypt_ctx_fail (ctx);
+   }
+   printf ("_check_for_K_KeyId ... end\n");
+   return true;
 }
 
 static bool
 _mongo_done_keys (mongocrypt_ctx_t *ctx)
 {
    (void) _mongocrypt_key_broker_docs_done (&ctx->kb);
+   if (!_check_for_K_KeyId (ctx)) {
+      return false;
+   }
    return _mongocrypt_ctx_state_from_key_broker (ctx);
 }
 
@@ -300,6 +416,9 @@ _kms_done (mongocrypt_ctx_t *ctx)
       BSON_ASSERT (!_mongocrypt_key_broker_status (&ctx->kb, ctx->status));
       return _mongocrypt_ctx_fail (ctx);
    }
+   // if (!_check_for_K_KeyId (ctx)) {
+   //    return false;
+   // }
    return _mongocrypt_ctx_state_from_key_broker (ctx);
 }
 
@@ -366,6 +485,9 @@ mongocrypt_ctx_decrypt_init (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *doc)
    }
 
    (void) _mongocrypt_key_broker_requests_done (&ctx->kb);
+   // if (!_check_for_K_KeyId (ctx)) {
+   //    return false;
+   // }
 
    // TODO: if all S_KeyId's are cached, then check for K_KeyId.
    // if (ctx->kb.state == MONGOCRYPT_CTX_READY) {
