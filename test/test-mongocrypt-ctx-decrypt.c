@@ -393,8 +393,10 @@ static void _test_decrypt_fle2 (_mongocrypt_tester_t *tester) {
    
 
    _mongocrypt_buffer_cleanup (&K_Key_document);
-   _mongocrypt_buffer_cleanup (&S_Key_document);
+   _mongocrypt_buffer_cleanup (&K_KeyId);
    _mongocrypt_buffer_cleanup (&K_Key);
+   _mongocrypt_buffer_cleanup (&S_Key_document);
+   _mongocrypt_buffer_cleanup (&S_KeyId);
    _mongocrypt_buffer_cleanup (&S_Key);
    mongocrypt_destroy (crypt);
 }
