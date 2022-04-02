@@ -494,9 +494,9 @@ _kms_done (mongocrypt_ctx_t *ctx)
       BSON_ASSERT (!_mongocrypt_key_broker_status (&ctx->kb, ctx->status));
       return _mongocrypt_ctx_fail (ctx);
    }
-   // if (!_check_for_K_KeyId (ctx)) {
-   //    return false;
-   // }
+   if (!_check_for_K_KeyId (ctx)) {
+      return false;
+   }
    return _mongocrypt_ctx_state_from_key_broker (ctx);
 }
 
