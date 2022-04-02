@@ -15,6 +15,7 @@
  */
 
 #include "test-mongocrypt-assert-match-bson.h"
+#include "test-mongocrypt-assert.h"
 
 #ifndef _WIN32
 #define MONGOCRYPT_PRINTF_FORMAT(a, b) __attribute__ ((format (__printf__, a, b)))
@@ -1065,14 +1066,15 @@ _assert_match_bson (const bson_t *doc, const bson_t *pattern) {
    if (!match_bson_with_ctx (doc, pattern, &ctx)) {
       char *doc_str = doc ? bson_as_json (doc, NULL) : NULL;
       char *pattern_str = bson_as_json (pattern, NULL);
-      fprintf (stderr,
-               "ASSERT_MATCH failed with document:\n\n"
+      
+      TEST_ERROR ("ASSERT_MATCH failed with document:\n\n"
                "%s\n"
                "pattern:\n%s\n"
                "%s\n",
                doc_str ? doc_str : "{}",
                pattern_str,
                ctx.errmsg);
+
       bson_free (doc_str);
       bson_free (pattern_str);
    }
