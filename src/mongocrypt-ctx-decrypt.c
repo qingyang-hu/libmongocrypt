@@ -563,9 +563,9 @@ mongocrypt_ctx_decrypt_init (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *doc)
    }
 
    (void) _mongocrypt_key_broker_requests_done (&ctx->kb);
-   // if (!_check_for_K_KeyId (ctx)) {
-   //    return false;
-   // }
+   if (!_check_for_K_KeyId (ctx)) {
+      return false;
+   }
 
    // TODO: if all S_KeyId's are cached, then check for K_KeyId.
    // if (ctx->kb.state == MONGOCRYPT_CTX_READY) {
