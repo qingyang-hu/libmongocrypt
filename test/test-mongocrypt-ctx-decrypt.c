@@ -323,6 +323,13 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
    _mongocrypt_buffer_t S_KeyId;
    _mongocrypt_buffer_t K_KeyId;
 
+#define TEST_IEEV_BASE64                                                       \
+   "BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4S4mm5vId01" \
+   "BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx4yj05Ou4D6yZUmYfVKmE" \
+   "ljge16NCxKm7Ir9gvmQsp8x1wqGBzpndA6gkqFxsxfvQ/"                             \
+   "cIqOwMW9dGTTWsfKge+jYkCUIFMfms+XyC/8evQhjjA+qR6eEmV+N/"                    \
+   "kwpR7Q7TJe0lwU5kw2kSe3/KiPKRZZTbn8znadvycfJ0cCWGad9SQ=="
+
    _mongocrypt_buffer_copy_from_hex (&S_KeyId,
                                      "12345678123498761234123456789012");
    _mongocrypt_buffer_copy_from_hex (&K_KeyId,
@@ -340,23 +347,18 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_OK (
          mongocrypt_ctx_decrypt_init (
             ctx,
-            TEST_BSON (
-               "{'plainText':'sample','encrypted':{'$binary':{'base64':'"
-               "BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4"
-               "S4mm5vId01BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx"
-               "4yj05Ou4D6yZUmYfVKmEljge16NCxKm7Ir9gvmQsp8x1wqGBzpndA6gkqFxsxfv"
-               "Q/cIqOwMW9dGTTWsfKge+jYkCUIFMfms+XyC/8evQhjjA+qR6eEmV+N/"
-               "kwpR7Q7TJe0lwU5kw2kSe3/"
-               "KiPKRZZTbn8znadvycfJ0cCWGad9SQ==','subType':'6'}}}")),
+            TEST_BSON ("{'plainText':'sample','encrypted':{'$binary':{'base64':"
+                       "'" TEST_IEEV_BASE64 "','subType':'6'}}}")),
          ctx);
       /* The first transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests S_Key.
        */
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                           MONGOCRYPT_CTX_NEED_MONGO_KEYS);
       ASSERT_OK (mongocrypt_ctx_mongo_feed (
-                    ctx, TEST_FILE ("./test/data/keys/"
-                                    "12345678123498761234123456789012-local-"
-                                    "document.json")),
+                    ctx,
+                    TEST_FILE ("./test/data/keys/"
+                               "12345678123498761234123456789012-local-"
+                               "document.json")),
                  ctx);
       ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
       /* The second transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests K_Key.
@@ -364,9 +366,10 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                           MONGOCRYPT_CTX_NEED_MONGO_KEYS);
       ASSERT_OK (mongocrypt_ctx_mongo_feed (
-                    ctx, TEST_FILE ("./test/data/keys/"
-                                    "ABCDEFAB123498761234123456789012-local-"
-                                    "document.json")),
+                    ctx,
+                    TEST_FILE ("./test/data/keys/"
+                               "ABCDEFAB123498761234123456789012-local-"
+                               "document.json")),
                  ctx);
       ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_READY);
@@ -393,23 +396,18 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_OK (
          mongocrypt_ctx_decrypt_init (
             ctx,
-            TEST_BSON (
-               "{'plainText':'sample','encrypted':{'$binary':{'base64':'"
-               "BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4"
-               "S4mm5vId01BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx"
-               "4yj05Ou4D6yZUmYfVKmEljge16NCxKm7Ir9gvmQsp8x1wqGBzpndA6gkqFxsxfv"
-               "Q/cIqOwMW9dGTTWsfKge+jYkCUIFMfms+XyC/8evQhjjA+qR6eEmV+N/"
-               "kwpR7Q7TJe0lwU5kw2kSe3/"
-               "KiPKRZZTbn8znadvycfJ0cCWGad9SQ==','subType':'6'}}}")),
+            TEST_BSON ("{'plainText':'sample','encrypted':{'$binary':{'base64':"
+                       "'" TEST_IEEV_BASE64 "','subType':'6'}}}")),
          ctx);
       /* The first transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests S_Key.
        */
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                           MONGOCRYPT_CTX_NEED_MONGO_KEYS);
       ASSERT_OK (mongocrypt_ctx_mongo_feed (
-                    ctx, TEST_FILE ("./test/data/keys/"
-                                    "12345678123498761234123456789012-aws-"
-                                    "document.json")),
+                    ctx,
+                    TEST_FILE ("./test/data/keys/"
+                               "12345678123498761234123456789012-aws-"
+                               "document.json")),
                  ctx);
       ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_NEED_KMS);
@@ -417,9 +415,10 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
          mongocrypt_kms_ctx_t *kms_ctx = mongocrypt_ctx_next_kms_ctx (ctx);
          ASSERT (kms_ctx);
          ASSERT_OK (mongocrypt_kms_ctx_feed (
-                       kms_ctx, TEST_FILE ("./test/data/keys/"
-                                           "12345678123498761234123456789012-"
-                                           "aws-decrypt-reply.txt")),
+                       kms_ctx,
+                       TEST_FILE ("./test/data/keys/"
+                                  "12345678123498761234123456789012-"
+                                  "aws-decrypt-reply.txt")),
                     kms_ctx);
          ASSERT (!mongocrypt_ctx_next_kms_ctx (ctx));
          ASSERT_OK (mongocrypt_ctx_kms_done (ctx), ctx);
@@ -429,9 +428,10 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                           MONGOCRYPT_CTX_NEED_MONGO_KEYS);
       ASSERT_OK (mongocrypt_ctx_mongo_feed (
-                    ctx, TEST_FILE ("./test/data/keys/"
-                                    "ABCDEFAB123498761234123456789012-aws-"
-                                    "document.json")),
+                    ctx,
+                    TEST_FILE ("./test/data/keys/"
+                               "ABCDEFAB123498761234123456789012-aws-"
+                               "document.json")),
                  ctx);
       ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_NEED_KMS);
@@ -439,9 +439,10 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
          mongocrypt_kms_ctx_t *kms_ctx = mongocrypt_ctx_next_kms_ctx (ctx);
          ASSERT (kms_ctx);
          ASSERT_OK (mongocrypt_kms_ctx_feed (
-                       kms_ctx, TEST_FILE ("./test/data/keys/"
-                                           "ABCDEFAB123498761234123456789012-"
-                                           "aws-decrypt-reply.txt")),
+                       kms_ctx,
+                       TEST_FILE ("./test/data/keys/"
+                                  "ABCDEFAB123498761234123456789012-"
+                                  "aws-decrypt-reply.txt")),
                     kms_ctx);
          ASSERT (!mongocrypt_ctx_next_kms_ctx (ctx));
          ASSERT_OK (mongocrypt_ctx_kms_done (ctx), ctx);
@@ -470,30 +471,20 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_OK (
          mongocrypt_ctx_decrypt_init (
             ctx,
-            TEST_BSON (
-               "{'plainText':'sample','encrypted1':{'$binary':{'base64':'"
-               "BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4"
-               "S4mm5vId01BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx"
-               "4yj05Ou4D6yZUmYfVKmEljge16NCxKm7Ir9gvmQsp8x1wqGBzpndA6gkqFxsxfv"
-               "Q/cIqOwMW9dGTTWsfKge+jYkCUIFMfms+XyC/8evQhjjA+qR6eEmV+N/"
-               "kwpR7Q7TJe0lwU5kw2kSe3/"
-               "KiPKRZZTbn8znadvycfJ0cCWGad9SQ==','subType':'6'}}, "
-               "'encrypted2':{'$binary':{'base64':'"
-               "BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4"
-               "S4mm5vId01BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx"
-               "4yj05Ou4D6yZUmYfVKmEljge16NCxKm7Ir9gvmQsp8x1wqGBzpndA6gkqFxsxfv"
-               "Q/cIqOwMW9dGTTWsfKge+jYkCUIFMfms+XyC/8evQhjjA+qR6eEmV+N/"
-               "kwpR7Q7TJe0lwU5kw2kSe3/"
-               "KiPKRZZTbn8znadvycfJ0cCWGad9SQ==','subType':'6'}}}")),
+            TEST_BSON ("{'plainText':'sample','encrypted1':{'$binary':{'base64'"
+                       ":'" TEST_IEEV_BASE64 "','subType':'6'}}, "
+                       "'encrypted2':{'$binary':{'base64':'" TEST_IEEV_BASE64
+                       "','subType':'6'}}}")),
          ctx);
       /* The first transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests S_Key.
        */
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                           MONGOCRYPT_CTX_NEED_MONGO_KEYS);
       ASSERT_OK (mongocrypt_ctx_mongo_feed (
-                    ctx, TEST_FILE ("./test/data/keys/"
-                                    "12345678123498761234123456789012-local-"
-                                    "document.json")),
+                    ctx,
+                    TEST_FILE ("./test/data/keys/"
+                               "12345678123498761234123456789012-local-"
+                               "document.json")),
                  ctx);
       ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
       /* The second transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests K_Key.
@@ -501,9 +492,10 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                           MONGOCRYPT_CTX_NEED_MONGO_KEYS);
       ASSERT_OK (mongocrypt_ctx_mongo_feed (
-                    ctx, TEST_FILE ("./test/data/keys/"
-                                    "ABCDEFAB123498761234123456789012-local-"
-                                    "document.json")),
+                    ctx,
+                    TEST_FILE ("./test/data/keys/"
+                               "ABCDEFAB123498761234123456789012-local-"
+                               "document.json")),
                  ctx);
       ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_READY);
@@ -530,23 +522,18 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_OK (
          mongocrypt_ctx_decrypt_init (
             ctx,
-            TEST_BSON (
-               "{'plainText':'sample','encrypted':{'$binary':{'base64':'"
-               "BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4"
-               "S4mm5vId01BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx"
-               "4yj05Ou4D6yZUmYfVKmEljge16NCxKm7Ir9gvmQsp8x1wqGBzpndA6gkqFxsxfv"
-               "Q/cIqOwMW9dGTTWsfKge+jYkCUIFMfms+XyC/8evQhjjA+qR6eEmV+N/"
-               "kwpR7Q7TJe0lwU5kw2kSe3/"
-               "KiPKRZZTbn8znadvycfJ0cCWGad9SQ==','subType':'6'}}}")),
+            TEST_BSON ("{'plainText':'sample','encrypted':{'$binary':{'base64':"
+                       "' " TEST_IEEV_BASE64 "','subType':'6'}}}")),
          ctx);
       /* The first transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests S_Key.
        */
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                           MONGOCRYPT_CTX_NEED_MONGO_KEYS);
       ASSERT_OK (mongocrypt_ctx_mongo_feed (
-                    ctx, TEST_FILE ("./test/data/keys/"
-                                    "12345678123498761234123456789012-local-"
-                                    "document.json")),
+                    ctx,
+                    TEST_FILE ("./test/data/keys/"
+                               "12345678123498761234123456789012-local-"
+                               "document.json")),
                  ctx);
       ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
       mongocrypt_ctx_destroy (ctx);
@@ -556,23 +543,18 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_OK (
          mongocrypt_ctx_decrypt_init (
             ctx,
-            TEST_BSON (
-               "{'plainText':'sample','encrypted':{'$binary':{'base64':'"
-               "BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4"
-               "S4mm5vId01BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx"
-               "4yj05Ou4D6yZUmYfVKmEljge16NCxKm7Ir9gvmQsp8x1wqGBzpndA6gkqFxsxfv"
-               "Q/cIqOwMW9dGTTWsfKge+jYkCUIFMfms+XyC/8evQhjjA+qR6eEmV+N/"
-               "kwpR7Q7TJe0lwU5kw2kSe3/"
-               "KiPKRZZTbn8znadvycfJ0cCWGad9SQ==','subType':'6'}}}")),
+            TEST_BSON ("{'plainText':'sample','encrypted':{'$binary':{'base64':"
+                       "'" TEST_IEEV_BASE64 "','subType':'6'}}}")),
          ctx);
       /* The first transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests K_Key.
        */
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                           MONGOCRYPT_CTX_NEED_MONGO_KEYS);
       ASSERT_OK (mongocrypt_ctx_mongo_feed (
-                    ctx, TEST_FILE ("./test/data/keys/"
-                                    "ABCDEFAB123498761234123456789012-local-"
-                                    "document.json")),
+                    ctx,
+                    TEST_FILE ("./test/data/keys/"
+                               "ABCDEFAB123498761234123456789012-local-"
+                               "document.json")),
                  ctx);
       ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_READY);
@@ -599,23 +581,18 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_OK (
          mongocrypt_ctx_decrypt_init (
             ctx,
-            TEST_BSON (
-               "{'plainText':'sample','encrypted':{'$binary':{'base64':'"
-               "BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4"
-               "S4mm5vId01BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx"
-               "4yj05Ou4D6yZUmYfVKmEljge16NCxKm7Ir9gvmQsp8x1wqGBzpndA6gkqFxsxfv"
-               "Q/cIqOwMW9dGTTWsfKge+jYkCUIFMfms+XyC/8evQhjjA+qR6eEmV+N/"
-               "kwpR7Q7TJe0lwU5kw2kSe3/"
-               "KiPKRZZTbn8znadvycfJ0cCWGad9SQ==','subType':'6'}}}")),
+            TEST_BSON ("{'plainText':'sample','encrypted':{'$binary':{'base64':"
+                       "'" TEST_IEEV_BASE64 "','subType':'6'}}}")),
          ctx);
       /* The first transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests S_Key.
        */
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                           MONGOCRYPT_CTX_NEED_MONGO_KEYS);
       ASSERT_OK (mongocrypt_ctx_mongo_feed (
-                    ctx, TEST_FILE ("./test/data/keys/"
-                                    "12345678123498761234123456789012-local-"
-                                    "document.json")),
+                    ctx,
+                    TEST_FILE ("./test/data/keys/"
+                               "12345678123498761234123456789012-local-"
+                               "document.json")),
                  ctx);
       ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
       /* The second transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests K_Key.
@@ -623,9 +600,10 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                           MONGOCRYPT_CTX_NEED_MONGO_KEYS);
       ASSERT_OK (mongocrypt_ctx_mongo_feed (
-                    ctx, TEST_FILE ("./test/data/keys/"
-                                    "ABCDEFAB123498761234123456789012-local-"
-                                    "document.json")),
+                    ctx,
+                    TEST_FILE ("./test/data/keys/"
+                               "ABCDEFAB123498761234123456789012-local-"
+                               "document.json")),
                  ctx);
       ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_READY);
@@ -636,16 +614,11 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_OK (
          mongocrypt_ctx_decrypt_init (
             ctx,
-            TEST_BSON (
-               "{'plainText':'sample','encrypted':{'$binary':{'base64':'"
-               "BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4"
-               "S4mm5vId01BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx"
-               "4yj05Ou4D6yZUmYfVKmEljge16NCxKm7Ir9gvmQsp8x1wqGBzpndA6gkqFxsxfv"
-               "Q/cIqOwMW9dGTTWsfKge+jYkCUIFMfms+XyC/8evQhjjA+qR6eEmV+N/"
-               "kwpR7Q7TJe0lwU5kw2kSe3/"
-               "KiPKRZZTbn8znadvycfJ0cCWGad9SQ==','subType':'6'}}}")),
+            TEST_BSON ("{'plainText':'sample','encrypted':{'$binary':{'base64':"
+                       "'" TEST_IEEV_BASE64 "','subType':'6'}}}")),
          ctx);
       out = mongocrypt_binary_new ();
+      ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_READY);
       ASSERT_OK (mongocrypt_ctx_finalize (ctx, out), ctx);
       ASSERT (_mongocrypt_binary_to_bson (out, &out_bson));
       _assert_match_bson (
@@ -666,14 +639,8 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_OK (
          mongocrypt_ctx_decrypt_init (
             ctx,
-            TEST_BSON (
-               "{'plainText':'sample','encrypted':{'$binary':{'base64':'"
-               "BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4"
-               "S4mm5vId01BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx"
-               "4yj05Ou4D6yZUmYfVKmEljge16NCxKm7Ir9gvmQsp8x1wqGBzpndA6gkqFxsxfv"
-               "Q/cIqOwMW9dGTTWsfKge+jYkCUIFMfms+XyC/8evQhjjA+qR6eEmV+N/"
-               "kwpR7Q7TJe0lwU5kw2kSe3/"
-               "KiPKRZZTbn8znadvycfJ0cCWGad9SQ==','subType':'6'}}}")),
+            TEST_BSON ("{'plainText':'sample','encrypted':{'$binary':{'base64':"
+                       "'" TEST_IEEV_BASE64 "','subType':'6'}}}")),
          ctx);
       /* The first transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests S_Key.
        */
@@ -696,23 +663,18 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
       ASSERT_OK (
          mongocrypt_ctx_decrypt_init (
             ctx,
-            TEST_BSON (
-               "{'plainText':'sample','encrypted':{'$binary':{'base64':'"
-               "BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4"
-               "S4mm5vId01BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx"
-               "4yj05Ou4D6yZUmYfVKmEljge16NCxKm7Ir9gvmQsp8x1wqGBzpndA6gkqFxsxfv"
-               "Q/cIqOwMW9dGTTWsfKge+jYkCUIFMfms+XyC/8evQhjjA+qR6eEmV+N/"
-               "kwpR7Q7TJe0lwU5kw2kSe3/"
-               "KiPKRZZTbn8znadvycfJ0cCWGad9SQ==','subType':'6'}}}")),
+            TEST_BSON ("{'plainText':'sample','encrypted':{'$binary':{'base64':"
+                       "'" TEST_IEEV_BASE64 "','subType':'6'}}}")),
          ctx);
       /* The first transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests S_Key.
        */
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                           MONGOCRYPT_CTX_NEED_MONGO_KEYS);
       ASSERT_OK (mongocrypt_ctx_mongo_feed (
-                    ctx, TEST_FILE ("./test/data/keys/"
-                                    "12345678123498761234123456789012-local-"
-                                    "document.json")),
+                    ctx,
+                    TEST_FILE ("./test/data/keys/"
+                               "12345678123498761234123456789012-local-"
+                               "document.json")),
                  ctx);
       ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
       /* The second transition to MONGOCRYPT_CTX_NEED_MONGO_KEYS requests K_Key.
@@ -728,6 +690,8 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
 
    _mongocrypt_buffer_cleanup (&K_KeyId);
    _mongocrypt_buffer_cleanup (&S_KeyId);
+
+#undef TEST_IEEV_BASE64
 }
 
 void
