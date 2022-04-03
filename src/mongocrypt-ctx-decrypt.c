@@ -22,78 +22,6 @@
 #include "mc-fle-blob-subtype-private.h"
 
 static bool
-_replace_ciphertext_with_plaintext (void *ctx,
-                                    _mongocrypt_buffer_t *in,
-                                    bson_value_t *out,
-                                    mongocrypt_status_t *status)
-{
-   _mongocrypt_key_broker_t *kb;
-   _mongocrypt_ciphertext_t ciphertext;
-   _mongocrypt_buffer_t plaintext;
-   _mongocrypt_buffer_t key_material;
-   _mongocrypt_buffer_t associated_data;
-   uint32_t bytes_written;
-   bool ret = false;
-
-   BSON_ASSERT (ctx);
-   BSON_ASSERT (in);
-   BSON_ASSERT (out);
-
-   _mongocrypt_buffer_init (&plaintext);
-   _mongocrypt_buffer_init (&associated_data);
-   _mongocrypt_buffer_init (&key_material);
-   kb = (_mongocrypt_key_broker_t *) ctx;
-
-   if (!_mongocrypt_ciphertext_parse_unowned (in, &ciphertext, status)) {
-      goto fail;
-   }
-
-   /* look up the key */
-   if (!_mongocrypt_key_broker_decrypted_key_by_id (
-          kb, &ciphertext.key_id, &key_material)) {
-      CLIENT_ERR ("key not found");
-      goto fail;
-   }
-
-   plaintext.len = _mongocrypt_calculate_plaintext_len (ciphertext.data.len);
-   plaintext.data = bson_malloc0 (plaintext.len);
-   BSON_ASSERT (plaintext.data);
-
-   plaintext.owned = true;
-
-   if (!_mongocrypt_ciphertext_serialize_associated_data (&ciphertext,
-                                                          &associated_data)) {
-      CLIENT_ERR ("could not serialize associated data");
-      goto fail;
-   }
-
-   if (!_mongocrypt_do_decryption (kb->crypt->crypto,
-                                   &associated_data,
-                                   &key_material,
-                                   &ciphertext.data,
-                                   &plaintext,
-                                   &bytes_written,
-                                   status)) {
-      goto fail;
-   }
-
-   plaintext.len = bytes_written;
-
-   if (!_mongocrypt_buffer_to_bson_value (
-          &plaintext, ciphertext.original_bson_type, out)) {
-      CLIENT_ERR ("malformed encrypted bson");
-      goto fail;
-   }
-   ret = true;
-
-fail:
-   _mongocrypt_buffer_cleanup (&plaintext);
-   _mongocrypt_buffer_cleanup (&associated_data);
-   _mongocrypt_buffer_cleanup (&key_material);
-   return ret;
-}
-
-static bool
 _replace_FLE2IndexedEqualityEncryptedValue_with_plaintext (void *ctx,
                                     _mongocrypt_buffer_t *in,
                                     bson_value_t *out,
@@ -161,6 +89,82 @@ fail:
    _mongocrypt_buffer_cleanup (&K_Key);
    _mongocrypt_buffer_cleanup (&S_Key);
    mc_FLE2IndexedEqualityEncryptedValue_destroy (ieev);
+   return ret;
+}
+
+static bool
+_replace_ciphertext_with_plaintext (void *ctx,
+                                    _mongocrypt_buffer_t *in,
+                                    bson_value_t *out,
+                                    mongocrypt_status_t *status)
+{
+   _mongocrypt_key_broker_t *kb;
+   _mongocrypt_ciphertext_t ciphertext;
+   _mongocrypt_buffer_t plaintext;
+   _mongocrypt_buffer_t key_material;
+   _mongocrypt_buffer_t associated_data;
+   uint32_t bytes_written;
+   bool ret = false;
+
+   BSON_ASSERT (ctx);
+   BSON_ASSERT (in);
+   BSON_ASSERT (out);
+
+   if (in->data[0] == MC_SUBTYPE_FLE2IndexedEqualityEncryptedValue) {
+      return _replace_FLE2IndexedEqualityEncryptedValue_with_plaintext (ctx, in, out, status);
+   }
+
+   _mongocrypt_buffer_init (&plaintext);
+   _mongocrypt_buffer_init (&associated_data);
+   _mongocrypt_buffer_init (&key_material);
+   kb = (_mongocrypt_key_broker_t *) ctx;
+
+   if (!_mongocrypt_ciphertext_parse_unowned (in, &ciphertext, status)) {
+      goto fail;
+   }
+
+   /* look up the key */
+   if (!_mongocrypt_key_broker_decrypted_key_by_id (
+          kb, &ciphertext.key_id, &key_material)) {
+      CLIENT_ERR ("key not found");
+      goto fail;
+   }
+
+   plaintext.len = _mongocrypt_calculate_plaintext_len (ciphertext.data.len);
+   plaintext.data = bson_malloc0 (plaintext.len);
+   BSON_ASSERT (plaintext.data);
+
+   plaintext.owned = true;
+
+   if (!_mongocrypt_ciphertext_serialize_associated_data (&ciphertext,
+                                                          &associated_data)) {
+      CLIENT_ERR ("could not serialize associated data");
+      goto fail;
+   }
+
+   if (!_mongocrypt_do_decryption (kb->crypt->crypto,
+                                   &associated_data,
+                                   &key_material,
+                                   &ciphertext.data,
+                                   &plaintext,
+                                   &bytes_written,
+                                   status)) {
+      goto fail;
+   }
+
+   plaintext.len = bytes_written;
+
+   if (!_mongocrypt_buffer_to_bson_value (
+          &plaintext, ciphertext.original_bson_type, out)) {
+      CLIENT_ERR ("malformed encrypted bson");
+      goto fail;
+   }
+   ret = true;
+
+fail:
+   _mongocrypt_buffer_cleanup (&plaintext);
+   _mongocrypt_buffer_cleanup (&associated_data);
+   _mongocrypt_buffer_cleanup (&key_material);
    return ret;
 }
 
