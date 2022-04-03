@@ -1050,6 +1050,7 @@ _test_key_broker_restart (_mongocrypt_tester_t *tester)
    ASSERT (kms);
    _mongocrypt_tester_satisfy_kms (tester, kms);
    ASSERT_OK (_mongocrypt_key_broker_kms_done (&kb, kms_providers), &kb);
+   ASSERT (kb.state == KB_DONE);
 
    _mongocrypt_key_broker_cleanup (&kb);
    _mongocrypt_buffer_cleanup (&key_doc2);
