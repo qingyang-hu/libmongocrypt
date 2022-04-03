@@ -328,10 +328,7 @@ fail:
 }
 
 
-/* _check_for_K_KeyId must be called after requests for all S_KeyId are satisfied.
- * TODO: only check for S_KeyId once. Add a boolean to skip subsequent
- * unnecessary checks.
- */
+/* _check_for_K_KeyId must be called after requests for all S_KeyId are satisfied. */
 static bool
 _check_for_K_KeyId (mongocrypt_ctx_t *ctx)
 {
