@@ -873,7 +873,8 @@ _mongocrypt_key_broker_kms_done (
              MONGOCRYPT_KMS_PROVIDER_AZURE ||
           key_returned->doc->kek.kms_provider == MONGOCRYPT_KMS_PROVIDER_GCP) {
          if (key_returned->decrypted) {
-            /* Non-local keys may have been decrypted previously if the key broker has been restarted. */
+            /* Non-local keys may have been decrypted previously if the key
+             * broker has been restarted. */
             continue;
          }
 
@@ -1086,9 +1087,10 @@ _mongocrypt_key_broker_add_test_key (_mongocrypt_key_broker_t *kb,
 }
 
 
-bool _mongocrypt_key_broker_restart (_mongocrypt_key_broker_t *kb) {
+bool
+_mongocrypt_key_broker_restart (_mongocrypt_key_broker_t *kb)
+{
    if (kb->state != KB_DONE) {
-      /* TODO: include state in message */
       return _key_broker_fail_w_msg (
          kb, "_mongocrypt_key_broker_restart called in wrong state");
    }

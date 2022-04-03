@@ -906,6 +906,7 @@ _test_key_broker_kmip_notfound (_mongocrypt_tester_t *tester)
    mongocrypt_destroy (crypt);
 }
 
+
 static void
 _test_key_broker_request_any (_mongocrypt_tester_t *tester)
 {
@@ -997,8 +998,11 @@ _test_key_broker_add_any (_mongocrypt_tester_t *tester)
 }
 
 
-/* Test that key requests can be started again after transitioning to DONE. */
-static void _test_key_broker_restart (_mongocrypt_tester_t *tester) {
+/* Test that key requests can be added again after transitioning to DONE and
+ * calling _mongocrypt_key_broker_restart. */
+static void
+_test_key_broker_restart (_mongocrypt_tester_t *tester)
+{
    mongocrypt_t *crypt;
    mongocrypt_status_t *status;
    _mongocrypt_buffer_t key_id1, key_id2, key_doc1, key_doc2;
@@ -1018,7 +1022,8 @@ static void _test_key_broker_restart (_mongocrypt_tester_t *tester) {
    ASSERT_OK (_mongocrypt_key_broker_requests_done (&kb), &kb);
 
    ASSERT (kb.state == KB_ADDING_DOCS);
-   ASSERT_OK (_mongocrypt_key_broker_add_doc (&kb, kms_providers, &key_doc1), &kb);
+   ASSERT_OK (_mongocrypt_key_broker_add_doc (&kb, kms_providers, &key_doc1),
+              &kb);
    ASSERT_OK (_mongocrypt_key_broker_docs_done (&kb), &kb);
 
    ASSERT (kb.state == KB_DECRYPTING_KEY_MATERIAL);
@@ -1036,7 +1041,8 @@ static void _test_key_broker_restart (_mongocrypt_tester_t *tester) {
    ASSERT_OK (_mongocrypt_key_broker_requests_done (&kb), &kb);
 
    ASSERT (kb.state == KB_ADDING_DOCS);
-   ASSERT_OK (_mongocrypt_key_broker_add_doc (&kb, kms_providers, &key_doc2), &kb);
+   ASSERT_OK (_mongocrypt_key_broker_add_doc (&kb, kms_providers, &key_doc2),
+              &kb);
    ASSERT_OK (_mongocrypt_key_broker_docs_done (&kb), &kb);
 
    ASSERT (kb.state == KB_DECRYPTING_KEY_MATERIAL);
@@ -1054,8 +1060,12 @@ static void _test_key_broker_restart (_mongocrypt_tester_t *tester) {
    mongocrypt_status_destroy (status);
 }
 
-/* Test that a decrypted key can be returned while in the KB_REQUESTING state. */
-static void _test_key_broker_get_decrypted_key_while_requesting (_mongocrypt_tester_t *tester) {
+/* Test that a decrypted key can be returned while in the KB_REQUESTING state.
+ */
+static void
+_test_key_broker_get_decrypted_key_while_requesting (
+   _mongocrypt_tester_t *tester)
+{
    mongocrypt_t *crypt;
    mongocrypt_status_t *status;
    _mongocrypt_buffer_t key_id1, key_doc1, key_decrypted1, key_decrypted1_copy;
@@ -1074,7 +1084,8 @@ static void _test_key_broker_get_decrypted_key_while_requesting (_mongocrypt_tes
    ASSERT_OK (_mongocrypt_key_broker_requests_done (&kb), &kb);
 
    ASSERT (kb.state == KB_ADDING_DOCS);
-   ASSERT_OK (_mongocrypt_key_broker_add_doc (&kb, kms_providers, &key_doc1), &kb);
+   ASSERT_OK (_mongocrypt_key_broker_add_doc (&kb, kms_providers, &key_doc1),
+              &kb);
    ASSERT_OK (_mongocrypt_key_broker_docs_done (&kb), &kb);
 
    ASSERT (kb.state == KB_DECRYPTING_KEY_MATERIAL);
@@ -1082,14 +1093,18 @@ static void _test_key_broker_get_decrypted_key_while_requesting (_mongocrypt_tes
    ASSERT (kms);
    _mongocrypt_tester_satisfy_kms (tester, kms);
    ASSERT_OK (_mongocrypt_key_broker_kms_done (&kb, kms_providers), &kb);
-   
+
    ASSERT (kb.state == KB_DONE);
-   ASSERT_OK (_mongocrypt_key_broker_decrypted_key_by_id (&kb, &key_id1, &key_decrypted1), &kb);
+   ASSERT_OK (_mongocrypt_key_broker_decrypted_key_by_id (
+                 &kb, &key_id1, &key_decrypted1),
+              &kb);
 
    /* Restart. */
    ASSERT_OK (_mongocrypt_key_broker_restart (&kb), &kb);
    ASSERT (kb.state == KB_REQUESTING);
-   ASSERT_OK (_mongocrypt_key_broker_decrypted_key_by_id (&kb, &key_id1, &key_decrypted1_copy), &kb);
+   ASSERT_OK (_mongocrypt_key_broker_decrypted_key_by_id (
+                 &kb, &key_id1, &key_decrypted1_copy),
+              &kb);
 
    ASSERT_CMPBUF (key_decrypted1, key_decrypted1_copy);
 
@@ -1102,7 +1117,6 @@ static void _test_key_broker_get_decrypted_key_while_requesting (_mongocrypt_tes
    mongocrypt_status_destroy (status);
 }
 
-
 void
 _mongocrypt_tester_install_key_broker (_mongocrypt_tester_t *tester)
 {
@@ -1113,10 +1127,8 @@ _mongocrypt_tester_install_key_broker (_mongocrypt_tester_t *tester)
    INSTALL_TEST (_test_key_broker_multi_match);
    INSTALL_TEST (_test_key_broker_kmip);
    INSTALL_TEST (_test_key_broker_kmip_notfound);
-
    INSTALL_TEST (_test_key_broker_request_any);
    INSTALL_TEST (_test_key_broker_add_any);
-
    INSTALL_TEST (_test_key_broker_restart);
    INSTALL_TEST (_test_key_broker_get_decrypted_key_while_requesting);
 }

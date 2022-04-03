@@ -42,7 +42,9 @@ _check_first_byte (uint8_t byte, traversal_match_t match)
    case TRAVERSE_MATCH_MARKING:
       return byte == MC_SUBTYPE_FLE1EncryptionPlaceholder;
    case TRAVERSE_MATCH_CIPHERTEXT:
-      return byte == MC_SUBTYPE_FLE1DeterministicEncryptedValue || byte == MC_SUBTYPE_FLE1RandomEncryptedValue || byte == MC_SUBTYPE_FLE2IndexedEqualityEncryptedValue;
+      return byte == MC_SUBTYPE_FLE1DeterministicEncryptedValue ||
+             byte == MC_SUBTYPE_FLE1RandomEncryptedValue ||
+             byte == MC_SUBTYPE_FLE2IndexedEqualityEncryptedValue;
    }
    return false;
 }
