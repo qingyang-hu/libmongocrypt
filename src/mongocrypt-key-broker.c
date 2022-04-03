@@ -314,8 +314,6 @@ _mongocrypt_key_broker_requests_done (_mongocrypt_key_broker_t *kb)
    }
 
    if (kb->key_requests) {
-      /* If all were satisfied from the cache, then we're done since those all
-       * have decrypted material */
       if (_all_key_requests_satisfied (kb)) {
          kb->state = KB_DONE;
       } else {
