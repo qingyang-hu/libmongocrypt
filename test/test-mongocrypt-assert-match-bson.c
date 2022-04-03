@@ -18,8 +18,7 @@
 #include "test-mongocrypt-assert.h"
 
 #ifndef _WIN32
-#define MONGOCRYPT_PRINTF_FORMAT(a, b) \
-   __attribute__ ((format (__printf__, a, b)))
+#define MONGOCRYPT_PRINTF_FORMAT(a, b) __attribute__ ((format (__printf__, a, b)))
 #else
 #define MONGOCRYPT_PRINTF_FORMAT(a, b) /* no-op */
 #endif
@@ -992,10 +991,9 @@ match_bson_value (const bson_value_t *doc,
       }
       break;
    default:
-      match_err (ctx,
-                 "unexpected value type %d: %s",
-                 doc->value_type,
-                 _mongoc_bson_type_to_str (doc->value_type));
+      match_err (ctx, "unexpected value type %d: %s",
+                  doc->value_type,
+                  _mongoc_bson_type_to_str (doc->value_type));
    }
 
    if (!ret) {
