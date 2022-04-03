@@ -48,7 +48,7 @@
  * _id, and that is not an error)
  */
 
-/* The state of the key broker. Transitions are only forward. */
+/* The state of the key broker. */
 typedef enum {
    /* Starting state. Accept requests for keys to be added (either by id or
       name) */
