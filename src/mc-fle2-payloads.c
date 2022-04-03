@@ -18,6 +18,7 @@
 
 #include "mc-fle2-payloads-private.h"
 #include "mc-tokens-private.h"
+#include "mc-fle-blob-subtype-private.h"
 
 /* clang-format off */
 /*
@@ -79,8 +80,8 @@ mc_FLE2IndexedEqualityEncryptedValue_parse (
       return false;
    }
    uint8_t fle_blob_subtype = buf->data[offset];
-   if (fle_blob_subtype != 7) {
-      CLIENT_ERR ("mc_FLE2IndexedEqualityEncryptedValue_parse expected fle_blob_subtype=7 got: %" PRIu8, fle_blob_subtype);
+   if (fle_blob_subtype != MC_SUBTYPE_FLE2IndexedEqualityEncryptedValue) {
+      CLIENT_ERR ("mc_FLE2IndexedEqualityEncryptedValue_parse expected fle_blob_subtype=%d got: %" PRIu8, MC_SUBTYPE_FLE2IndexedEqualityEncryptedValue, fle_blob_subtype);
       return false;
    }
    offset += 1;
