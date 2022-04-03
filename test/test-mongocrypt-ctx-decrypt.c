@@ -323,6 +323,16 @@ _test_decrypt_fle2 (_mongocrypt_tester_t *tester)
    _mongocrypt_buffer_t S_KeyId;
    _mongocrypt_buffer_t K_KeyId;
 
+#ifdef MONGOCRYPT_ENABLE_CRYPTO_COMMON_CRYPTO
+   printf ("Test requires OpenSSL. Detected Common Crypto. Skipping. TODO: "
+           "remove.");
+   return;
+#endif
+#ifdef MONGOCRYPT_ENABLE_CRYPTO_CNG
+   printf ("Test requires OpenSSL. Detected CNG. Skipping. TODO: remove");
+   return;
+#endif
+
 #define TEST_IEEV_BASE64                                                       \
    "BxI0VngSNJh2EjQSNFZ4kBICQ7uhTd9C2oI8M1afRon0ZaYG0s6oTmt0aBZ9kO4S4mm5vId01" \
    "BsW7tBHytA8pDJ2IiWBCmah3OGH2M4ET7PSqekQD4gkUCo4JeEttx4yj05Ou4D6yZUmYfVKmE" \
