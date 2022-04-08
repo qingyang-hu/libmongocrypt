@@ -30,6 +30,7 @@ typedef enum {
    _MONGOCRYPT_TYPE_DECRYPT,
    _MONGOCRYPT_TYPE_CREATE_DATA_KEY,
    _MONGOCRYPT_TYPE_REWRAP_MANY_DATAKEY,
+   _MONGOCRYPT_TYPE_COMPACT,
 } _mongocrypt_ctx_type_t;
 
 /* Option values are validated when set.
@@ -173,6 +174,11 @@ typedef struct {
    _mongocrypt_ctx_rmd_datakey_t *datakeys_iter;
    _mongocrypt_buffer_t results;
 } _mongocrypt_ctx_rewrap_many_datakey_t;
+
+typedef struct {
+   mongocrypt_ctx_t parent;
+   _mongocrypt_buffer_t encrypted_field_config;
+} _mongocrypt_ctx_compact_t;
 
 
 /* Used for option validation. True means required. False means prohibited. */
