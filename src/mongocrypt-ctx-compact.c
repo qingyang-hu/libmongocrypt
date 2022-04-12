@@ -18,127 +18,89 @@
 
 #include "mc-tokens-private.h"
 
-static void _cleanup (mongocrypt_ctx_t *ctx) {
-   _mongocrypt_ctx_compact_t *const cctx =
-      (_mongocrypt_ctx_compact_t *) ctx;
+static void
+_cleanup (mongocrypt_ctx_t *ctx)
+{
+   _mongocrypt_ctx_compact_t *const cctx = (_mongocrypt_ctx_compact_t *) ctx;
 
    BSON_ASSERT_PARAM (ctx);
 
    _mongocrypt_buffer_cleanup (&cctx->encrypted_field_config);
    _mongocrypt_buffer_cleanup (&cctx->result);
+   mc_EncryptedFieldConfig_cleanup (&cctx->efc);
 }
 
 /* _finalize creates map of field path to ECOC token. */
-static bool _finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out) {
+static bool
+_finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
+{
    bson_t result_bson = BSON_INITIALIZER;
    bson_t result_compactionTokens;
    bool ret = false;
-   _mongocrypt_ctx_compact_t *cctx = (_mongocrypt_ctx_compact_t*) ctx;
+   _mongocrypt_ctx_compact_t *cctx = (_mongocrypt_ctx_compact_t *) ctx;
    mongocrypt_status_t *status = ctx->status;
    bson_t efc_bson;
 
    if (!_mongocrypt_buffer_to_bson (&cctx->encrypted_field_config, &efc_bson)) {
-         CLIENT_ERR ("unable to initialize encrypted_field_config as bson");
-         _mongocrypt_ctx_fail (ctx); goto fail;
+      CLIENT_ERR ("unable to initialize encrypted_field_config as bson");
+      _mongocrypt_ctx_fail (ctx);
+      goto fail;
    }
 
-   bson_iter_t iter;
-   BSON_APPEND_DOCUMENT_BEGIN (&result_bson, "compactionTokens", &result_compactionTokens);
-   if (!bson_iter_init_find (&iter, &efc_bson, "fields")) {
-      CLIENT_ERR ("unable to find 'fields' in encrypted_field_config");
-      _mongocrypt_ctx_fail (ctx); goto fail;
-   }
-   if (!BSON_ITER_HOLDS_ARRAY (&iter)) {
-      CLIENT_ERR ("expected 'fields' to be type array, got: %d", bson_iter_type (&iter));
-      _mongocrypt_ctx_fail (ctx); goto fail;
-   }
-   if (!bson_iter_recurse (&iter, &iter)) {
-      CLIENT_ERR ("unable to recurse into encrypted_field_config 'fields'");
-      _mongocrypt_ctx_fail (ctx); goto fail;
-   }
-   while (bson_iter_next (&iter)) {
-      if (!BSON_ITER_HOLDS_DOCUMENT (&iter)) {
-         CLIENT_ERR ("expected 'fields[]' to be type document, got: %d", bson_iter_type(&iter));
-         _mongocrypt_ctx_fail (ctx); goto fail;
-      }
-      bson_t field;
-      const uint8_t* field_data;
-      uint32_t field_len;
-      bson_iter_document (&iter, &field_len, &field_data);
-      if (!bson_init_static (&field, field_data, field_len)) {
-         CLIENT_ERR ("unable to initialize 'fields[]' value as document");
-         _mongocrypt_ctx_fail (ctx); goto fail;
-      }
+   BSON_APPEND_DOCUMENT_BEGIN (
+      &result_bson, "compactionTokens", &result_compactionTokens);
 
-      bson_iter_t field_iter;
-      if (!bson_iter_init_find (&field_iter, &field, "keyId")) {
-         CLIENT_ERR ("unable to find 'keyId' in 'field' document");
-         _mongocrypt_ctx_fail (ctx); goto fail;
-      }
-      if (!BSON_ITER_HOLDS_BINARY (&field_iter)) {
-         CLIENT_ERR ("expected 'fields[].keyId' to be type binary, got: %d", bson_iter_type(&field_iter));
-         _mongocrypt_ctx_fail (ctx); goto fail;
-      }
 
-      _mongocrypt_buffer_t keyid;
-      if (!_mongocrypt_buffer_from_uuid_iter (&keyid, &field_iter)) {
-         CLIENT_ERR ("unable to parse uuid key from 'fields[].keyId'");
-         _mongocrypt_ctx_fail (ctx); goto fail;
-      }
-
-      const char* field_path;
-      if (!bson_iter_init_find (&field_iter, &field, "path")) {
-         CLIENT_ERR ("unable to find 'path' in 'field' document");
-         _mongocrypt_ctx_fail (ctx); goto fail;
-      }
-
-      if (!BSON_ITER_HOLDS_UTF8 (&field_iter)) {
-         CLIENT_ERR ("expected 'fields[].path' to be type UTF8, got: %d", bson_iter_type(&field_iter));
-         _mongocrypt_ctx_fail (ctx); goto fail;
-      }
-
-      field_path = bson_iter_utf8 (&field_iter, NULL /* length */);
-
+   mc_EncryptedField_t *ptr;
+   for (ptr = cctx->efc.fields; ptr != NULL; ptr = ptr->next) {
       /* Append ECOC token. */
-      {
-         _mongocrypt_buffer_t key = {0};
-         _mongocrypt_buffer_t tokenkey = {0};
-         mc_CollectionsLevel1Token_t *cl1t = NULL;
-         mc_ECOCToken_t *ecoct = NULL;
-         bool ecoc_ok = false;
+      _mongocrypt_buffer_t key = {0};
+      _mongocrypt_buffer_t tokenkey = {0};
+      mc_CollectionsLevel1Token_t *cl1t = NULL;
+      mc_ECOCToken_t *ecoct = NULL;
+      bool ecoc_ok = false;
 
-         if (!_mongocrypt_key_broker_decrypted_key_by_id (&ctx->kb, &keyid, &key)) {
-            goto ecoc_fail;
-         }
-         /* The last 32 bytes of the user key are the token key. */
-         if (!_mongocrypt_buffer_from_subrange (&tokenkey, &key, key.len - MONGOCRYPT_TOKEN_KEY_LEN, MONGOCRYPT_TOKEN_KEY_LEN)) {
-            CLIENT_ERR ("unable to get TokenKey from Data Encryption Key");
-            goto ecoc_fail;
-         }
-         cl1t = mc_CollectionsLevel1Token_new (ctx->crypt->crypto, &tokenkey, status);
-         if (!cl1t) {
-            goto ecoc_fail;
-         }
+      if (!_mongocrypt_key_broker_decrypted_key_by_id (
+             &ctx->kb, &ptr->keyId, &key)) {
+         goto ecoc_fail;
+      }
+      /* The last 32 bytes of the user key are the token key. */
+      if (!_mongocrypt_buffer_from_subrange (&tokenkey,
+                                             &key,
+                                             key.len - MONGOCRYPT_TOKEN_KEY_LEN,
+                                             MONGOCRYPT_TOKEN_KEY_LEN)) {
+         CLIENT_ERR ("unable to get TokenKey from Data Encryption Key");
+         goto ecoc_fail;
+      }
+      cl1t =
+         mc_CollectionsLevel1Token_new (ctx->crypt->crypto, &tokenkey, status);
+      if (!cl1t) {
+         goto ecoc_fail;
+      }
 
-         ecoct = mc_ECOCToken_new (ctx->crypt->crypto, cl1t, status);
-         if (!ecoct) {
-            goto ecoc_fail;
-         }
+      ecoct = mc_ECOCToken_new (ctx->crypt->crypto, cl1t, status);
+      if (!ecoct) {
+         goto ecoc_fail;
+      }
 
-         const _mongocrypt_buffer_t *ecoct_buf = mc_ECOCToken_get (ecoct);
+      const _mongocrypt_buffer_t *ecoct_buf = mc_ECOCToken_get (ecoct);
 
-         BSON_APPEND_BINARY (&result_compactionTokens, field_path, BSON_SUBTYPE_BINARY, ecoct_buf->data, ecoct_buf->len);
+      BSON_APPEND_BINARY (&result_compactionTokens,
+                          ptr->path,
+                          BSON_SUBTYPE_BINARY,
+                          ecoct_buf->data,
+                          ecoct_buf->len);
 
-         ecoc_ok = true;
-ecoc_fail:
-         mc_ECOCToken_destroy (ecoct);
-         mc_CollectionsLevel1Token_destroy (cl1t);
-         _mongocrypt_buffer_cleanup (&key);
-         if (!ecoc_ok) {
-            goto fail;
-         }
+      ecoc_ok = true;
+   ecoc_fail:
+      mc_ECOCToken_destroy (ecoct);
+      mc_CollectionsLevel1Token_destroy (cl1t);
+      _mongocrypt_buffer_cleanup (&key);
+      if (!ecoc_ok) {
+         goto fail;
       }
    }
+
 
    bson_append_document_end (&result_bson, &result_compactionTokens);
    _mongocrypt_buffer_steal_from_bson (&cctx->result, &result_bson);
@@ -165,7 +127,8 @@ mongocrypt_ctx_compact_init (mongocrypt_ctx_t *ctx,
    }
 
    if (!encrypted_field_config) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "encrypted_field_config must not be null");
+      return _mongocrypt_ctx_fail_w_msg (
+         ctx, "encrypted_field_config must not be null");
    }
 
    _mongocrypt_ctx_opts_spec_t opts_spec;
@@ -180,63 +143,27 @@ mongocrypt_ctx_compact_init (mongocrypt_ctx_t *ctx,
    ctx->vtable.cleanup = _cleanup;
    ctx->vtable.finalize = _finalize;
 
-   _mongocrypt_ctx_compact_t *cctx = (_mongocrypt_ctx_compact_t*) ctx;
+   _mongocrypt_ctx_compact_t *cctx = (_mongocrypt_ctx_compact_t *) ctx;
 
-   _mongocrypt_buffer_copy_from_binary (&cctx->encrypted_field_config, encrypted_field_config);
+   _mongocrypt_buffer_copy_from_binary (&cctx->encrypted_field_config,
+                                        encrypted_field_config);
+   /* Parse encypted_field_config. */
+   {
+      bson_t efc_bson;
+      if (!_mongocrypt_binary_to_bson (encrypted_field_config, &efc_bson)) {
+         return _mongocrypt_ctx_fail_w_msg (
+            ctx, "failed to initialize bson_t from encrypted_field_config");
+      }
+      if (!mc_EncryptedFieldConfig_parse (&cctx->efc, &efc_bson, ctx->status)) {
+         return _mongocrypt_ctx_fail (ctx);
+      }
+   }
 
    /* Request keys from encrypted_field_config. */
    {
-      mongocrypt_status_t *status = ctx->status;
-      bson_t efc_bson;
-      if (!_mongocrypt_buffer_to_bson (&cctx->encrypted_field_config, &efc_bson)) {
-            CLIENT_ERR ("unable to initialize encrypted_field_config as bson");
-            return _mongocrypt_ctx_fail (ctx);
-      }
-
-      bson_iter_t iter;
-      if (!bson_iter_init_find (&iter, &efc_bson, "fields")) {
-         CLIENT_ERR ("unable to find 'fields' in encrypted_field_config");
-         return _mongocrypt_ctx_fail (ctx);
-      }
-      if (!BSON_ITER_HOLDS_ARRAY (&iter)) {
-         CLIENT_ERR ("expected 'fields' to be type array, got: %d", bson_iter_type (&iter));
-         return _mongocrypt_ctx_fail (ctx);
-      }
-      if (!bson_iter_recurse (&iter, &iter)) {
-         CLIENT_ERR ("unable to recurse into encrypted_field_config 'fields'");
-         return _mongocrypt_ctx_fail (ctx);
-      }
-      while (bson_iter_next (&iter)) {
-         if (!BSON_ITER_HOLDS_DOCUMENT (&iter)) {
-            CLIENT_ERR ("expected 'fields[]' to be type document, got: %d", bson_iter_type(&iter));
-            return _mongocrypt_ctx_fail (ctx);
-         }
-         bson_t field;
-         const uint8_t* field_data;
-         uint32_t field_len;
-         bson_iter_document (&iter, &field_len, &field_data);
-         if (!bson_init_static (&field, field_data, field_len)) {
-            CLIENT_ERR ("unable to initialize 'fields[]' value as document");
-            return _mongocrypt_ctx_fail (ctx);
-         }
-
-         bson_iter_t field_iter;
-         if (!bson_iter_init_find (&field_iter, &field, "keyId")) {
-            CLIENT_ERR ("unable to find 'keyId' in 'field' document");
-            return _mongocrypt_ctx_fail (ctx);
-         }
-         if (!BSON_ITER_HOLDS_BINARY (&field_iter)) {
-            CLIENT_ERR ("expected 'fields[].keyId' to be type binary, got: %d", bson_iter_type(&field_iter));
-            return _mongocrypt_ctx_fail (ctx);
-         }
-
-         _mongocrypt_buffer_t keyid;
-         if (!_mongocrypt_buffer_from_uuid_iter (&keyid, &field_iter)) {
-            CLIENT_ERR ("unable to parse uuid key from 'fields[].keyId'");
-            return _mongocrypt_ctx_fail (ctx);
-         }
-
-         if (!_mongocrypt_key_broker_request_id (&ctx->kb, &keyid)) {
+      mc_EncryptedField_t *ptr;
+      for (ptr = cctx->efc.fields; ptr != NULL; ptr = ptr->next) {
+         if (!_mongocrypt_key_broker_request_id (&ctx->kb, &ptr->keyId)) {
             _mongocrypt_key_broker_status (&ctx->kb, ctx->status);
             return _mongocrypt_ctx_fail (ctx);
          }

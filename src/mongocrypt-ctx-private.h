@@ -23,6 +23,7 @@
 #include "mongocrypt-key-broker-private.h"
 #include "mongocrypt-key-private.h"
 #include "mongocrypt-endpoint-private.h"
+#include "mc-efc-private.h"
 
 typedef enum {
    _MONGOCRYPT_TYPE_NONE,
@@ -177,8 +178,9 @@ typedef struct {
 
 typedef struct {
    mongocrypt_ctx_t parent;
-   _mongocrypt_buffer_t encrypted_field_config;
+   _mongocrypt_buffer_t encrypted_field_config; /* TODO: remove. */
    _mongocrypt_buffer_t result;
+   mc_EncryptedFieldConfig_t efc;
 } _mongocrypt_ctx_compact_t;
 
 
