@@ -51,7 +51,7 @@ _test_compact_success (_mongocrypt_tester_t *tester)
          &out_bson,
          TMP_BSON ("{'compactionTokens': {'firstName': {'$binary': {'base64': "
                    "'noN+05JsuO1oDg59yypIGj45i+eFH6HOTXOPpeZ//Mk=','subType': "
-                   "'04'}}}}"));
+                   "'0'}}}}"));
       mongocrypt_binary_destroy (out);
    }
 
@@ -107,7 +107,7 @@ _test_compact_nonlocal_kms (_mongocrypt_tester_t *tester)
          &out_bson,
          TMP_BSON ("{'compactionTokens': {'firstName': {'$binary': {'base64': "
                    "'noN+05JsuO1oDg59yypIGj45i+eFH6HOTXOPpeZ//Mk=','subType': "
-                   "'04'}}}}"));
+                   "'0'}}}}"));
       mongocrypt_binary_destroy (out);
    }
 
@@ -303,7 +303,7 @@ _test_compact_need_kms_credentials (_mongocrypt_tester_t *tester)
          &out_bson,
          TMP_BSON ("{'compactionTokens': {'firstName': {'$binary': {'base64': "
                    "'noN+05JsuO1oDg59yypIGj45i+eFH6HOTXOPpeZ//Mk=','subType': "
-                   "'04'}}}}"));
+                   "'0'}}}}"));
       mongocrypt_binary_destroy (out);
    }
 
