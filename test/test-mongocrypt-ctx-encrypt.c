@@ -18,6 +18,8 @@
 
 #include "test-mongocrypt.h"
 
+#include "test-mongocrypt-assert-match-bson.h"
+
 
 static void
 _test_explicit_encrypt_init (_mongocrypt_tester_t *tester)
@@ -1975,7 +1977,286 @@ _test_fle2_insert_update_payload (bson_iter_t *iter,
    mc_FLE2InsertUpdatePayload_cleanup (&payload);
 }
 
+bool
+_hook_native_crypto_aes_256_cbc_encrypt (void *ctx,
+                                         mongocrypt_binary_t *key,
+                                         mongocrypt_binary_t *iv,
+                                         mongocrypt_binary_t *in,
+                                         mongocrypt_binary_t *out,
+                                         uint32_t *bytes_written,
+                                         mongocrypt_status_t *status)
+{
+   _mongocrypt_buffer_t keybuf;
+   _mongocrypt_buffer_from_binary (&keybuf, key);
+   _mongocrypt_buffer_t ivbuf;
+   _mongocrypt_buffer_from_binary (&ivbuf, iv);
+   _mongocrypt_buffer_t inbuf;
+   _mongocrypt_buffer_from_binary (&inbuf, in);
+   _mongocrypt_buffer_t outbuf;
+   _mongocrypt_buffer_from_binary (&outbuf, out);
 
+   aes_256_args_t args = {.key = &keybuf,
+                          .iv = &ivbuf,
+                          .in = &inbuf,
+                          .out = &outbuf,
+                          .bytes_written = bytes_written,
+                          .status = status};
+   return _native_crypto_aes_256_cbc_encrypt (args);
+}
+
+bool
+_hook_native_crypto_aes_256_cbc_decrypt (void *ctx,
+                                         mongocrypt_binary_t *key,
+                                         mongocrypt_binary_t *iv,
+                                         mongocrypt_binary_t *in,
+                                         mongocrypt_binary_t *out,
+                                         uint32_t *bytes_written,
+                                         mongocrypt_status_t *status)
+{
+   _mongocrypt_buffer_t keybuf;
+   _mongocrypt_buffer_from_binary (&keybuf, key);
+   _mongocrypt_buffer_t ivbuf;
+   _mongocrypt_buffer_from_binary (&ivbuf, iv);
+   _mongocrypt_buffer_t inbuf;
+   _mongocrypt_buffer_from_binary (&inbuf, in);
+   _mongocrypt_buffer_t outbuf;
+   _mongocrypt_buffer_from_binary (&outbuf, out);
+
+   aes_256_args_t args = {.key = &keybuf,
+                          .iv = &ivbuf,
+                          .in = &inbuf,
+                          .out = &outbuf,
+                          .bytes_written = bytes_written,
+                          .status = status};
+   return _native_crypto_aes_256_cbc_decrypt (args);
+}
+
+bool
+_hook_native_crypto_random (void *ctx,
+                            mongocrypt_binary_t *out,
+                            uint32_t count,
+                            mongocrypt_status_t *status)
+{
+   int *random_callcount = (int *) ctx;
+   if (*random_callcount == 0) {
+      /* First call to random is to get IV to Encrypt 'p' */
+      ASSERT (count == 16);
+      memcpy (
+         out->data,
+         "\xc7\x43\xd6\x75\x76\x9e\xa7\x88\xd5\xe5\xc4\x40\xdb\x24\x0d\xf9",
+         16);
+   } else if (*random_callcount == 1) {
+      /* Second call to random is to get IV to EncryptAEAD 'v' */
+      ASSERT (count == 16);
+      memcpy (
+         out->data,
+         "\x4c\xd9\x64\x10\x43\x81\xe6\x61\xfa\x1f\xa0\x5c\x49\x8e\xad\x21",
+         16);
+   } else {
+      TEST_ERROR (
+         "expected random to be called exactly twice, got called a third time");
+   }
+
+   *random_callcount += 1;
+
+   return true;
+}
+
+bool _hook_native_hmac_sha512 (void *ctx,
+                                    mongocrypt_binary_t *key,
+                                    mongocrypt_binary_t *in,
+                                    mongocrypt_binary_t *out,
+                                    mongocrypt_status_t *status) {
+   _mongocrypt_buffer_t keybuf;
+   _mongocrypt_buffer_from_binary (&keybuf, key);
+   _mongocrypt_buffer_t inbuf;
+   _mongocrypt_buffer_from_binary (&inbuf, in);
+   _mongocrypt_buffer_t outbuf;
+   _mongocrypt_buffer_from_binary (&outbuf, out);
+
+   return _native_crypto_hmac_sha_512 (&keybuf, &inbuf, &outbuf, status);
+}
+
+bool _hook_native_hmac_sha256 (void *ctx,
+                                    mongocrypt_binary_t *key,
+                                    mongocrypt_binary_t *in,
+                                    mongocrypt_binary_t *out,
+                                    mongocrypt_status_t *status) {
+   _mongocrypt_buffer_t keybuf;
+   _mongocrypt_buffer_from_binary (&keybuf, key);
+   _mongocrypt_buffer_t inbuf;
+   _mongocrypt_buffer_from_binary (&inbuf, in);
+   _mongocrypt_buffer_t outbuf;
+   _mongocrypt_buffer_from_binary (&outbuf, out);
+
+   return _native_crypto_hmac_sha_256 (&keybuf, &inbuf, &outbuf, status);
+}
+
+bool _hook_native_sha256 (void *ctx,
+                                    mongocrypt_binary_t *in,
+                                    mongocrypt_binary_t *out,
+                                    mongocrypt_status_t *status) {
+   TEST_ERROR ("_hook_native_sha256 not expected to have been called");
+}
+
+static void
+_test_encrypt_fle2_insert_payload_with_fixed_iv (_mongocrypt_tester_t *tester) {
+   mongocrypt_t *crypt;
+   int random_call_count;
+   /* Create crypt with custom hooks. */
+   {
+      /* localkey_data is the KEK used to encrypt the keyMaterial
+       * in ./test/data/keys/ */
+      char localkey_data[MONGOCRYPT_KEY_LEN] = {0};
+      mongocrypt_binary_t *localkey;
+
+      crypt = mongocrypt_new ();
+      mongocrypt_setopt_log_handler (crypt, _mongocrypt_stdout_log_fn, NULL);
+      localkey = mongocrypt_binary_new_from_data ((uint8_t *) localkey_data,
+                                                  sizeof localkey_data);
+      ASSERT_OK (mongocrypt_setopt_kms_provider_local (crypt, localkey), crypt);
+      ASSERT_OK (mongocrypt_setopt_crypto_hooks (
+                    crypt,
+                    _hook_native_crypto_aes_256_cbc_encrypt,
+                    _hook_native_crypto_aes_256_cbc_decrypt,
+                    _hook_native_crypto_random,
+                    _hook_native_hmac_sha512,
+                    _hook_native_hmac_sha256,
+                    _hook_native_sha256,
+                    &random_call_count /* ctx */),
+                 crypt);
+      const char *efc_map_json = 
+         "{ 'db.test': {"
+         "    'escCollection' : 'fle2.testColl.esc',"
+         "    'eccCollection' : 'fle2.testColl.ecc',"
+         "    'ecocCollection' : 'fle2.testColl.ecoc',"
+         "    'fields': ["
+         "        {"
+         "            'keyId': {"
+         "                    '$binary': {"
+         "                    'base64': 'EjRWeBI0mHYSNBI0VniQEg==',"
+         "                    'subType': '04'"
+         "                }"
+         "            },"
+         "            'path': 'ssn',"
+         "            'bsonType': 'string',"
+         "            'queries': {"
+         "                'queryType': 'equality',"
+         "                'contention': 0"
+         "            }"
+         "        }"
+         "    ]"
+         " }}";
+         
+      ASSERT_OK (mongocrypt_setopt_encrypted_field_config_map (
+                            crypt, TEST_BSON (efc_map_json)),
+                         crypt);
+      mongocrypt_binary_destroy (localkey);
+      ASSERT_OK (mongocrypt_init (crypt), crypt);
+   }
+
+   /* Create encryption context. */
+   mongocrypt_ctx_t *ctx;
+   {
+      ctx = mongocrypt_ctx_new (crypt);
+      const char *cmd_json = "{"
+                             "    'insert': 'test',"
+                             "    'documents': ["
+                             "        {"
+                             "            '_id': 1,"
+                             "            'ssn': '123-45-6789'"
+                             "        }"
+                             "    ]"
+                             "}";
+      ASSERT_OK (
+         mongocrypt_ctx_encrypt_init (ctx, "db", -1, TEST_BSON (cmd_json)),
+         ctx);
+   }
+
+   ASSERT_STATE_EQUAL (mongocrypt_ctx_state(ctx), MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
+   {
+      /* Use a FLE2EncryptionPlaceholder obtained from https://gist.github.com/kevinAlbs/cba611fe0d120b3f67c6bee3195d4ce6. */
+      const char *mongocryptd_reply_json =
+      "{"
+      "    'ok': {"
+      "          '$numberInt': '1'"
+      "    },"
+      "    'result': {"
+      "          'documents': [{"
+      "                '_id': 1,"
+      "                'ssn': {"
+      "                      '$binary': {"
+      "                            'base64': 'A2EAAAAQdAABAAAAEGEAAgAAAAVraQAQAAAABBI0VngSNJh2EjQSNFZ4kBIFa3UAEAAAAASrze+rEjSYdhI0EjRWeJASAnYACQAAAHZhbHVlMTIzABJjbQAAAAAAAAAAAAA=',"
+      "                            'subType': '06'"
+      "                      }"
+      "                }"
+      "          }],"
+      "          'insert': 'test',"
+      "          '$db': 'test',"
+      "          'encryptedFields': {"
+      "                'escCollection': 'fle2.testColl.esc',"
+      "                'eccCollection': 'fle2.testColl.ecc',"
+      "                'ecocCollection': 'fle2.testColl.ecoc',"
+      "                'fields': ["
+      "                      {"
+      "                            'keyId': {"
+      "                                  '$binary': {"
+      "                                        'base64': 'EjRWeBI0mHYSNBI0VniQEg==',"
+      "                                        'subType': '04'"
+      "                                  }"
+      "                            },"
+      "                            'path': 'ssn',"
+      "                            'bsonType': 'string',"
+      "                            'queries': {"
+      "                                  'queryType': 'equality',"
+      "                                  'contention': 0"
+      "                            }"
+      "                      }"
+      "                ]"
+      "          }"
+      "    },"
+      "    'hasEncryptedPlaceholders': true"
+      "}";
+       ASSERT_OK (mongocrypt_ctx_mongo_feed (ctx, TEST_BSON (mongocryptd_reply_json)), ctx);
+       ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
+   }
+
+   ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_NEED_MONGO_KEYS);
+   {
+      ASSERT_OK (mongocrypt_ctx_mongo_feed (ctx, TEST_FILE ("./test/data/keys/12345678123498761234123456789012-local-document.json")), ctx);
+      ASSERT_OK (mongocrypt_ctx_mongo_feed (ctx, TEST_FILE ("./test/data/keys/ABCDEFAB123498761234123456789012-local-document.json")), ctx);
+      ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
+   }
+
+   ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_READY);
+   {
+      mongocrypt_binary_t *out;
+      bson_t as_bson;
+      const char *expect_json = "{"
+                             "    'insert': 'test',"
+                             "    'documents': ["
+                             "        {"
+                             "            '_id': 1,"
+                             "            'ssn': {"
+                             "                  '$binary': {"
+                             "                        'base64': 'BHEBAAAFZAAgAAAAAHb62aV7+mqmaGcotPLdG3KP7S8diFwWMLM/5rYtqLrEBXMAIAAAAAAVJ6OWHRv3OtCozHpt3ZzfBhaxZirLv3B+G8PuaaO4EgVjACAAAAAAsZXWOWA+UiCBbrJNB6bHflB/cn7pWSvwWN2jw4FPeIUFcABQAAAAAMdD1nV2nqeI1eXEQNskDflCy8I7/HvvqDKJ6XxjhrPQWdLqjz+8GosGUsB7A8ee/uG9/guENuL25XD+Fxxkv1LLXtavHOlLF7iW0u9yabqqBXUAEAAAAAQSNFZ4EjSYdhI0EjRWeJASEHQAAgAAAAV2AE0AAAAAq83vqxI0mHYSNBI0VniQEkzZZBBDgeZh+h+gXEmOrSFtVvkUcnHWj/rfPW7iJ0G3UJ8zpuBmUM/VjOMJCY4+eDqdTiPIwX+/vNXegc8FZQAgAAAAAOuac/eRLYakKX6B0vZ1r3QodOQFfjqJD+xlGiPu4/PsAA==',"
+                             "                        'subType': '06'"
+                             "                  }"
+                             "            }"
+                             "        }"
+                             "    ]"
+                             "}";
+
+      out = mongocrypt_binary_new ();
+      ASSERT_OK (mongocrypt_ctx_finalize (ctx, out), ctx);
+      ASSERT (_mongocrypt_binary_to_bson (out, &as_bson));
+      _assert_match_bson (&as_bson, TMP_BSON (expect_json));
+      mongocrypt_binary_destroy (out);
+   }
+
+   mongocrypt_ctx_destroy (ctx);
+   mongocrypt_destroy (crypt);
+}
 static void
 _test_encrypt_fle2_insert_payload (_mongocrypt_tester_t *tester)
 {
@@ -2057,4 +2338,5 @@ _mongocrypt_tester_install_ctx_encrypt (_mongocrypt_tester_t *tester)
    INSTALL_TEST (_test_encrypt_remote_encryptedfields);
    INSTALL_TEST (_test_encrypt_with_bypassqueryanalysis);
    INSTALL_TEST (_test_encrypt_fle2_insert_payload);
+   INSTALL_TEST (_test_encrypt_fle2_insert_payload_with_fixed_iv);
 }
