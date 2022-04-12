@@ -107,15 +107,10 @@ fail:
 
 bool
 mongocrypt_ctx_compact_init (mongocrypt_ctx_t *ctx,
-                             const char *collection,
                              mongocrypt_binary_t *encrypted_field_config)
 {
    if (!ctx) {
       return false;
-   }
-
-   if (!collection) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "collection must not be null");
    }
 
    if (!encrypted_field_config) {

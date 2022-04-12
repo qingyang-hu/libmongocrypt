@@ -28,7 +28,7 @@ _test_compact_success (_mongocrypt_tester_t *tester)
    ctx = mongocrypt_ctx_new (crypt);
    efc = TEST_FILE ("./test/data/compact/encrypted-field-config.json");
 
-   ASSERT_OK (mongocrypt_ctx_compact_init (ctx, "basic", efc), ctx);
+   ASSERT_OK (mongocrypt_ctx_compact_init (ctx, efc), ctx);
    ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                        MONGOCRYPT_CTX_NEED_MONGO_KEYS);
    {
@@ -70,7 +70,7 @@ _test_compact_nonlocal_kms (_mongocrypt_tester_t *tester)
    ctx = mongocrypt_ctx_new (crypt);
    efc = TEST_FILE ("./test/data/compact/encrypted-field-config.json");
 
-   ASSERT_OK (mongocrypt_ctx_compact_init (ctx, "basic", efc), ctx);
+   ASSERT_OK (mongocrypt_ctx_compact_init (ctx, efc), ctx);
    ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                        MONGOCRYPT_CTX_NEED_MONGO_KEYS);
    {
@@ -127,7 +127,7 @@ _test_compact_server_example (_mongocrypt_tester_t *tester)
    ctx = mongocrypt_ctx_new (crypt);
    efc = TEST_FILE ("./test/data/compact/server-example-efc.json");
 
-   ASSERT_OK (mongocrypt_ctx_compact_init (ctx, "basic", efc), ctx);
+   ASSERT_OK (mongocrypt_ctx_compact_init (ctx, efc), ctx);
    ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                        MONGOCRYPT_CTX_NEED_MONGO_KEYS);
    {
@@ -180,9 +180,7 @@ _test_compact_init (_mongocrypt_tester_t *tester)
       ctx = mongocrypt_ctx_new (crypt);
       ASSERT_OK (
          mongocrypt_ctx_compact_init (
-            ctx,
-            "basic",
-            TEST_FILE ("./test/data/compact/encrypted-field-config.json")),
+            ctx, TEST_FILE ("./test/data/compact/encrypted-field-config.json")),
          ctx);
       ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                           MONGOCRYPT_CTX_NEED_MONGO_KEYS);
@@ -194,7 +192,7 @@ _test_compact_init (_mongocrypt_tester_t *tester)
       ctx = mongocrypt_ctx_new (crypt);
       ASSERT_FAILS (
          mongocrypt_ctx_compact_init (
-            ctx, "basic", TEST_FILE ("./test/data/efc/efc-missingKeyId.json")),
+            ctx, TEST_FILE ("./test/data/efc/efc-missingKeyId.json")),
          ctx,
          "unable to find 'keyId' in 'field' document");
       mongocrypt_ctx_destroy (ctx);
@@ -208,7 +206,7 @@ _test_compact_init (_mongocrypt_tester_t *tester)
                  ctx);
       ASSERT_FAILS (
          mongocrypt_ctx_compact_init (
-            ctx, "basic", TEST_FILE ("./test/data/efc/efc-missingKeyId.json")),
+            ctx, TEST_FILE ("./test/data/efc/efc-missingKeyId.json")),
          ctx,
          "algorithm prohibited");
       mongocrypt_ctx_destroy (ctx);
@@ -228,7 +226,7 @@ _test_compact_key_not_provided (_mongocrypt_tester_t *tester)
    ctx = mongocrypt_ctx_new (crypt);
    efc = TEST_FILE ("./test/data/compact/encrypted-field-config.json");
 
-   ASSERT_OK (mongocrypt_ctx_compact_init (ctx, "basic", efc), ctx);
+   ASSERT_OK (mongocrypt_ctx_compact_init (ctx, efc), ctx);
    ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                        MONGOCRYPT_CTX_NEED_MONGO_KEYS);
    ASSERT_FAILS (mongocrypt_ctx_mongo_done (ctx),
@@ -257,7 +255,7 @@ _test_compact_need_kms_credentials (_mongocrypt_tester_t *tester)
    efc = TEST_FILE ("./test/data/compact/encrypted-field-config.json");
 
    ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_compact_init (ctx, "basic", efc), ctx);
+   ASSERT_OK (mongocrypt_ctx_compact_init (ctx, efc), ctx);
    ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
                        MONGOCRYPT_CTX_NEED_KMS_CREDENTIALS);
    {
@@ -327,7 +325,7 @@ _test_compact_no_fields (_mongocrypt_tester_t *tester)
    efc = TEST_BSON ("{'escCollection': 'esc', 'eccCollection': 'ecc', "
                     "'ecocCollection': 'ecoc', 'fields': []}");
 
-   ASSERT_OK (mongocrypt_ctx_compact_init (ctx, "basic", efc), ctx);
+   ASSERT_OK (mongocrypt_ctx_compact_init (ctx, efc), ctx);
 
    ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx), MONGOCRYPT_CTX_READY);
    {

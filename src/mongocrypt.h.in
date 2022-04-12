@@ -1382,6 +1382,7 @@ mongocrypt_setopt_crypto_hook_sign_rsaes_pkcs1_v1_5 (
  */
 MONGOCRYPT_EXPORT
 bool
-mongocrypt_ctx_compact_init (mongocrypt_ctx_t *ctx, const char* collection, mongocrypt_binary_t *encrypted_field_config);
+mongocrypt_ctx_compact_init (mongocrypt_ctx_t *ctx,
+                             mongocrypt_binary_t *encrypted_field_config);
 
 #endif /* MONGOCRYPT_H */
