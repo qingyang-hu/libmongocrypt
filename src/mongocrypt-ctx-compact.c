@@ -25,7 +25,6 @@ _cleanup (mongocrypt_ctx_t *ctx)
 
    BSON_ASSERT_PARAM (ctx);
 
-   _mongocrypt_buffer_cleanup (&cctx->encrypted_field_config);
    _mongocrypt_buffer_cleanup (&cctx->result);
    mc_EncryptedFieldConfig_cleanup (&cctx->efc);
 }
@@ -39,13 +38,6 @@ _finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
    bool ret = false;
    _mongocrypt_ctx_compact_t *cctx = (_mongocrypt_ctx_compact_t *) ctx;
    mongocrypt_status_t *status = ctx->status;
-   bson_t efc_bson;
-
-   if (!_mongocrypt_buffer_to_bson (&cctx->encrypted_field_config, &efc_bson)) {
-      CLIENT_ERR ("unable to initialize encrypted_field_config as bson");
-      _mongocrypt_ctx_fail (ctx);
-      goto fail;
-   }
 
    BSON_APPEND_DOCUMENT_BEGIN (
       &result_bson, "compactionTokens", &result_compactionTokens);
@@ -145,8 +137,6 @@ mongocrypt_ctx_compact_init (mongocrypt_ctx_t *ctx,
 
    _mongocrypt_ctx_compact_t *cctx = (_mongocrypt_ctx_compact_t *) ctx;
 
-   _mongocrypt_buffer_copy_from_binary (&cctx->encrypted_field_config,
-                                        encrypted_field_config);
    /* Parse encypted_field_config. */
    {
       bson_t efc_bson;
