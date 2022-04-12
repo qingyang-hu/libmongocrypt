@@ -1389,6 +1389,12 @@ mongocrypt_setopt_crypto_hook_sign_rsaes_pkcs1_v1_5 (
 
 /**
  * Initialize a context for the compact helper.
+ *
+ * @param[in] ctx The @ref mongocrypt_ctx_t object.
+ * @param[in] encrypted_field_config The EncryptedFieldConfig BSON document of
+ * the target collection.
+ * @return A boolean indicating success. If false, an error status is set.
+ * Retrieve it with @ref mongocrypt_ctx_status.
  */
 MONGOCRYPT_EXPORT
 bool
