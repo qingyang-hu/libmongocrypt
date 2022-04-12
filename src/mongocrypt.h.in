@@ -1235,8 +1235,8 @@ mongocrypt_ctx_provide_kms_providers (
  * this BSON is the document containing the new data key to be inserted into
  * the key vault collection.
  *
- * If @p ctx was initialized with @ref mongocrypt_ctx_rewrap_many_datakey, then
- * this BSON has the form { "v": [(BSON document), ...] } where each BSON
+ * If @p ctx was initialized with @ref mongocrypt_ctx_rewrap_many_datakey_init,
+ * then this BSON has the form { "v": [(BSON document), ...] } where each BSON
  * document in the array is a document containing a rewrapped datakey to be
  * bulk-updated into the key vault collection.
  *
