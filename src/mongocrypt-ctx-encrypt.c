@@ -206,14 +206,15 @@ static bool
 _fle2_mongo_op_markings (mongocrypt_ctx_t *ctx, bson_t *out)
 {
    _mongocrypt_ctx_encrypt_t *ectx;
-   bson_t cmd_bson = BSON_INITIALIZER,
-          encrypted_field_config_bson = BSON_INITIALIZER;
+   bson_t cmd_bson;
+   bson_t encrypted_field_config_bson;
    ectx = (_mongocrypt_ctx_encrypt_t *) ctx;
 
    BSON_ASSERT (ctx->state == MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
    BSON_ASSERT (!_mongocrypt_buffer_empty (&ectx->encrypted_field_config));
 
    if (!_mongocrypt_buffer_to_bson (&ectx->original_cmd, &cmd_bson)) {
+      bson_init (out);
       return _mongocrypt_ctx_fail_w_msg (
          ctx, "unable to convert original_cmd to BSON");
    }
@@ -630,7 +631,6 @@ _fle2_finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
       }
 
       /* Append 'encryptionInformation' to the original command. */
-      bson_init (&converted);
       bson_copy_to (&original_cmd_bson, &converted);
       if (!_fle2_append_encryptionInformation (
              &converted, ectx->ns, &encrypted_field_config_bson, ctx->status)) {
