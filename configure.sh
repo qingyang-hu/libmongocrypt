@@ -1,0 +1,15 @@
+cmake \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_INSTALL_PREFIX=/Users/kevin.albertson/code/libmongocrypt-cse-asan/install \
+    -DCMAKE_PREFIX_PATH=/Users/kevin.albertson/code/mongo-c-driver-cse-asan/install \
+    -DCMAKE_C_COMPILER="/Users/kevin.albertson/bin/llvm-11.0.0/bin/clang" \
+    -DCMAKE_CXX_COMPILER="clang++" \
+    -DCMAKE_C_FLAGS="-DTEST_TRACING_INSECURE -Werror -Wall -Werror=return-type -fsanitize=address -fsanitize=leak -DBSON_MEMCHECK" \
+    -DCMAKE_C_STANDARD=C99 \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+    -DENABLE_MORE_WARNINGS_AS_ERRORS=ON \
+    -DENABLE_ONLINE_TESTS=ON \
+    -DMONGOCRYPT_CRYPTO=OpenSSL \
+    -DOPENSSL_ROOT_DIR="/Users/kevin.albertson/bin/openssl-1.1.1g" \
+    -DBUILD_TESTING=OFF \
+    -Bcmake-build
