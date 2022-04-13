@@ -103,3 +103,9 @@ def fle2aead_decrypt(C, Km, AD, Ke):
 
 def ServerDataEncryptionLevel1Token (rootKey):
     return _hmacsha256 (rootKey, struct.pack("<Q", 3))
+
+def CollectionsLevel1Level1Token (rootKey):
+    return _hmacsha256 (rootKey, struct.pack("<Q", 1))
+
+def ECOCToken (collectionsLevel1Level1Token):
+    return _hmacsha256 (collectionsLevel1Level1Token, struct.pack("<Q", 4))
