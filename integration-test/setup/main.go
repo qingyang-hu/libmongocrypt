@@ -42,7 +42,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error on Drop: %v", err)
 	}
-	key := readJSONFile("../../test/data/keys/12345678123498761234123456789012-local-document.json")
+	key := readJSONFile("../test/data/keys/12345678123498761234123456789012-local-document.json")
 	_, err = client.Database("keyvault").Collection("datakeys").InsertOne(context.TODO(), key)
 	if err != nil {
 		log.Fatalf("Error on Insert: %v", err)

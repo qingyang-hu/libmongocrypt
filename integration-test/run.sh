@@ -3,7 +3,7 @@ set -o errexit
 go run ./setup
 
 outdir=$(pwd)/.out
-csfledir=$(pwd)/../../cmake-build
+csfledir=$(pwd)/../cmake-build
 
 echo "Insert ... begin"
 $csfledir/csfle auto_encrypt \
