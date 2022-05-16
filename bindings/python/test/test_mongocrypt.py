@@ -382,6 +382,8 @@ class TestMongoCryptCallback(unittest.TestCase):
                                   csfle_path="/Users/kevin.albertson/bin/csfle/lib/mongo_csfle_v1.dylib")
         self.addCleanup(encrypter.close)
         ref = lib.mongocrypt_csfle_version(encrypter.mongocrypt.crypt)
+        print("test_csfle ... got csfle_version = {}".format(
+            encrypter.mongocrypt.csfle_version()))
         self.assertGreater(int(ffi.cast("intptr_t", ref)), 0)
 
     def test_encrypt(self):
@@ -390,6 +392,8 @@ class TestMongoCryptCallback(unittest.TestCase):
             mongocryptd_reply=bson_data('mongocryptd-reply.json'),
             key_docs=[bson_data('key-document.json')],
             kms_reply=http_data('kms-reply.txt')), self.mongo_crypt_opts())
+        print("test_encrypt ... got csfle_version = {}".format(
+            encrypter.mongocrypt.csfle_version()))
         self.addCleanup(encrypter.close)
         encrypted = encrypter.encrypt('text', bson_data('command.json'))
         self.assertEqual(bson.decode(encrypted, OPTS),

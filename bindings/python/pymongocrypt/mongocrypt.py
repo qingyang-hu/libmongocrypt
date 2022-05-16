@@ -342,6 +342,13 @@ class MongoCrypt(object):
         return DataKeyContext(self._create_context(), kms_provider, opts,
                               self.__callback)
 
+    def csfle_version(self):
+        """Returns the version of csfle."""
+        got = lib.mongocrypt_csfle_version_string(self.__crypt, ffi.NULL)
+        if got == ffi.NULL:
+            return ""
+        return _to_string(got)
+
 
 class MongoCryptContext(object):
     __slots__ = ("__ctx",)
