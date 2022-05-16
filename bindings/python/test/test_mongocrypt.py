@@ -391,13 +391,16 @@ class TestMongoCryptCallback(unittest.TestCase):
             list_colls_result=bson_data('collection-info.json'),
             mongocryptd_reply=bson_data('mongocryptd-reply.json'),
             key_docs=[bson_data('key-document.json')],
-            kms_reply=http_data('kms-reply.txt')), self.mongo_crypt_opts())
+            kms_reply=http_data('kms-reply.txt')), self.mongo_crypt_opts(),
+            csfle_path="/Users/kevin.albertson/bin/csfle/lib/mongo_csfle_v1.dylib")
         print("test_encrypt ... got csfle_version = {}".format(
             encrypter.mongocrypt.csfle_version()))
         self.addCleanup(encrypter.close)
         encrypted = encrypter.encrypt('test', bson_data('command.json'))
         self.assertEqual(bson.decode(encrypted, OPTS),
                          json_data('encrypted-command.json'))
+        # TODO: the following assertion fails.
+        # I think this is because of dictionary key ordering.
         self.assertEqual(encrypted, bson_data('encrypted-command.json'))
 
     def test_decrypt(self):
