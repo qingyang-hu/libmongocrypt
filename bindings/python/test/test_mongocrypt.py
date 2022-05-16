@@ -395,7 +395,7 @@ class TestMongoCryptCallback(unittest.TestCase):
         print("test_encrypt ... got csfle_version = {}".format(
             encrypter.mongocrypt.csfle_version()))
         self.addCleanup(encrypter.close)
-        encrypted = encrypter.encrypt('text', bson_data('command.json'))
+        encrypted = encrypter.encrypt('test', bson_data('command.json'))
         self.assertEqual(bson.decode(encrypted, OPTS),
                          json_data('encrypted-command.json'))
         self.assertEqual(encrypted, bson_data('encrypted-command.json'))
