@@ -32,13 +32,13 @@ cd libmongocrypt/kms-message
 $VALGRIND ../${KMS_BIN_DIR}/test_kms_request
 cd ../..
 
-echo "Running libmongocrypt tests."
-cd libmongocrypt
-MONGOCRYPT_TRACE=ON $VALGRIND ${BIN_DIR}/test-mongocrypt
-echo "Running example state machine."
-$VALGRIND ${BIN_DIR}/example-state-machine
-echo "Running example state machine (statically linked)."
-$VALGRIND ${BIN_DIR}/example-state-machine-static
-echo "Running libmongocrypt tests with no native crypto"
-MONGOCRYPT_TRACE=ON $VALGRIND ${NOCRYPTO_BIN_DIR}/test-mongocrypt
-cd ..
+# echo "Running libmongocrypt tests."
+# cd libmongocrypt
+# MONGOCRYPT_TRACE=ON $VALGRIND ${BIN_DIR}/test-mongocrypt
+# echo "Running example state machine."
+# $VALGRIND ${BIN_DIR}/example-state-machine
+# echo "Running example state machine (statically linked)."
+# $VALGRIND ${BIN_DIR}/example-state-machine-static
+# echo "Running libmongocrypt tests with no native crypto"
+# MONGOCRYPT_TRACE=ON $VALGRIND ${NOCRYPTO_BIN_DIR}/test-mongocrypt
+# cd ..
