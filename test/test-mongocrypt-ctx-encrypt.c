@@ -4437,6 +4437,145 @@ _test_fle1_collmod_without_jsonSchema (_mongocrypt_tester_t *tester)
    mongocrypt_destroy (crypt);
 }
 
+typedef struct {
+   const char *desc;
+   const char *cmd;
+   const char *db;
+   bool expect_invalidate;
+   bool expect_bypass;
+} invalidate_cached_jsonSchema_testcase;
+
+/* Test commands that may invalidate a cached JSON schema. */
+static void
+_test_invalidate_cached_jsonSchema (_mongocrypt_tester_t *tester)
+{
+   invalidate_cached_jsonSchema_testcase tests[] = {
+      {.desc = "collMod with $jsonSchema",
+       .cmd = "{ 'collMod': 'coll', 'validator': { '$jsonSchema': { "
+              "'bsonType': 'object' } } }",
+       .expect_invalidate = true},
+      {.desc = "collMod without $jsonSchema",
+       .cmd = "{ 'collMod': 'coll', 'validator': { 'foo': 'bar' }}",
+       .expect_invalidate = false},
+      {.desc = "create",
+       .cmd = "{ 'create': 'coll' }",
+       .expect_invalidate = true},
+      {.desc = "drop",
+       .cmd = "{ 'drop': 'coll' }",
+       .expect_invalidate = true,
+       .expect_bypass = true},
+      {.desc = "drop on a different collection",
+       .cmd = "{ 'drop': 'coll2' }",
+       .expect_invalidate = false,
+       .expect_bypass = true},
+      {.desc = "dropDatabase",
+       .cmd = "{ 'dropDatabase': 1 }",
+       .expect_invalidate = true,
+       .expect_bypass = true},
+      {.desc = "dropDatabase on a different database",
+       .cmd = "{ 'dropDatabase': 1 }",
+       .db = "db2",
+       .expect_invalidate = false,
+       .expect_bypass = true},
+      {.desc = "dropDatabase on a prefix database",
+       .cmd = "{ 'dropDatabase': 1 }",
+       .db = "d",
+       .expect_invalidate = false,
+       .expect_bypass = true},
+      {.desc = "insert",
+       .cmd = "{ 'insert': 'coll' }",
+       .expect_invalidate = false,
+       .expect_bypass = false}};
+
+   mongocrypt_binary_t *insert_cmd = TEST_BSON ("{'insert': 'coll'}");
+   mongocrypt_binary_t *collinfo =
+      TEST_BSON ("{'options': { 'validator': { '$jsonSchema': { 'bsonType': "
+                 "'object' } } } }");
+
+   for (int i = 0; i < sizeof (tests) / sizeof (tests[0]); i++) {
+      invalidate_cached_jsonSchema_testcase *test = tests + i;
+
+      printf ("_test_invalidate_cached_jsonSchema %s ... begin\n", test->desc);
+
+      mongocrypt_t *crypt =
+         _mongocrypt_tester_mongocrypt (TESTER_MONGOCRYPT_DEFAULT);
+
+      /* Encrypt an insert command to cache a $jsonSchema. */
+      {
+         mongocrypt_ctx_t *ctx = mongocrypt_ctx_new (crypt);
+
+         ASSERT_OK (mongocrypt_ctx_encrypt_init (ctx, "db", -1, insert_cmd),
+                    ctx);
+
+         ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
+                             MONGOCRYPT_CTX_NEED_MONGO_COLLINFO);
+         {
+            ASSERT_OK (mongocrypt_ctx_mongo_feed (ctx, collinfo), ctx);
+            ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
+         }
+
+         mongocrypt_ctx_destroy (ctx);
+      }
+
+      /* Encrypt an insert command. Expect the $jsonSchema to be cached. */
+      {
+         mongocrypt_ctx_t *ctx = mongocrypt_ctx_new (crypt);
+
+         ASSERT_OK (mongocrypt_ctx_encrypt_init (ctx, "db", -1, insert_cmd),
+                    ctx);
+
+         ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
+                             MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
+
+         mongocrypt_ctx_destroy (ctx);
+      }
+
+      /* Encrypt the tested command. */
+      {
+         mongocrypt_ctx_t *ctx = mongocrypt_ctx_new (crypt);
+         const char *db = "db";
+
+         if (test->db != NULL) {
+            db = test->db;
+         }
+
+         ASSERT_OK (
+            mongocrypt_ctx_encrypt_init (ctx, db, -1, TEST_BSON (test->cmd)),
+            ctx);
+
+         if (test->expect_bypass) {
+            ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
+                                MONGOCRYPT_CTX_READY);
+         } else {
+            ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
+                                MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
+         }
+         mongocrypt_ctx_destroy (ctx);
+      }
+
+      /* Encrypt another insert command. */
+      {
+         mongocrypt_ctx_t *ctx = mongocrypt_ctx_new (crypt);
+
+         ASSERT_OK (mongocrypt_ctx_encrypt_init (ctx, "db", -1, insert_cmd),
+                    ctx);
+
+         if (test->expect_invalidate) {
+            ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
+                                MONGOCRYPT_CTX_NEED_MONGO_COLLINFO);
+         } else {
+            ASSERT_STATE_EQUAL (mongocrypt_ctx_state (ctx),
+                                MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
+         }
+
+         mongocrypt_ctx_destroy (ctx);
+      }
+
+      printf ("_test_invalidate_cached_jsonSchema %s ... end\n", test->desc);
+      mongocrypt_destroy (crypt);
+   }
+}
+
 void
 _mongocrypt_tester_install_ctx_encrypt (_mongocrypt_tester_t *tester)
 {
@@ -4498,4 +4637,5 @@ _mongocrypt_tester_install_ctx_encrypt (_mongocrypt_tester_t *tester)
    INSTALL_TEST (_test_encrypt_macos_no_ctr);
    INSTALL_TEST (_test_fle1_collmod_with_jsonSchema);
    INSTALL_TEST (_test_fle1_collmod_without_jsonSchema);
+   INSTALL_TEST (_test_invalidate_cached_jsonSchema);
 }
