@@ -255,10 +255,125 @@ _test_cache_duplicates (_mongocrypt_tester_t *tester)
    mongocrypt_status_destroy (status);
    _mongocrypt_cache_cleanup (&cache);
 }
+
+/* match_attr_prefix sets `out` to 0 if and only if `a` and `b` begin with
+ * "attr" */
+static bool
+match_attr_prefix (void *a, void *b, int *out)
+{
+   char *a_str = (char *) a;
+   char *b_str = (char *) b;
+   *out = 1;
+   if (a_str == strstr (a_str, "attr") && b_str == strstr (b_str, "attr")) {
+      *out = 0;
+   }
+   return true;
+}
+
+static void
+_test_cache_remove_matches (_mongocrypt_tester_t *tester)
+{
+   mongocrypt_status_t *status = mongocrypt_status_new ();
+   bson_t *value = BCON_NEW ("value", "value");
+   bson_t *tmp = NULL;
+
+   /* Test invalidate on an empty cache. */
+   {
+      _mongocrypt_cache_t cache;
+      _mongocrypt_cache_collinfo_init (&cache);
+      ASSERT (_mongocrypt_cache_remove_matches (
+         &cache, "attr1", NULL /* cmp_attr */));
+      _mongocrypt_cache_cleanup (&cache);
+   }
+
+   /* Test invalidate with one entry. */
+   {
+      _mongocrypt_cache_t cache;
+      _mongocrypt_cache_collinfo_init (&cache);
+      ASSERT_OR_PRINT (
+         _mongocrypt_cache_add_copy (&cache, "attr1", value, status), status);
+      ASSERT_CMPINT ((int) _mongocrypt_cache_num_entries (&cache), ==, 1);
+      ASSERT (_mongocrypt_cache_remove_matches (
+         &cache, "attr1", NULL /* cmp_attr */));
+      ASSERT (_mongocrypt_cache_get (&cache, "attr1", (void **) &tmp))
+      if (NULL != tmp) {
+         TEST_ERROR ("expected not to find 'attr1', got: %s", tmp_json (tmp));
+      }
+      ASSERT_CMPINT ((int) _mongocrypt_cache_num_entries (&cache), ==, 0);
+      /* Invalidate again. */
+      ASSERT (_mongocrypt_cache_remove_matches (
+         &cache, "attr1", NULL /* cmp_attr */));
+      ASSERT (_mongocrypt_cache_get (&cache, "attr1", (void **) &tmp));
+      if (NULL != tmp) {
+         TEST_ERROR ("expected not to find 'attr1', got: %s", tmp_json (tmp));
+      }
+      ASSERT_CMPINT ((int) _mongocrypt_cache_num_entries (&cache), ==, 0);
+      _mongocrypt_cache_cleanup (&cache);
+   }
+
+   /* Test invalidate with two entries. */
+   {
+      _mongocrypt_cache_t cache;
+      _mongocrypt_cache_collinfo_init (&cache);
+      ASSERT_OR_PRINT (
+         _mongocrypt_cache_add_copy (&cache, "attr1", value, status), status);
+      ASSERT_OR_PRINT (
+         _mongocrypt_cache_add_copy (&cache, "attr2", value, status), status);
+      ASSERT_CMPINT ((int) _mongocrypt_cache_num_entries (&cache), ==, 2);
+      ASSERT (_mongocrypt_cache_remove_matches (
+         &cache, "attr1", NULL /* cmp_attr */));
+      ASSERT (_mongocrypt_cache_get (&cache, "attr1", (void **) &tmp));
+      if (NULL != tmp) {
+         TEST_ERROR ("expected not to find 'attr1', got: %s", tmp_json (tmp));
+      }
+      ASSERT_CMPINT ((int) _mongocrypt_cache_num_entries (&cache), ==, 1);
+      ASSERT (_mongocrypt_cache_remove_matches (
+         &cache, "attr2", NULL /* cmp_attr */));
+      ASSERT (_mongocrypt_cache_get (&cache, "attr2", (void **) &tmp));
+      if (NULL != tmp) {
+         TEST_ERROR ("expected not to find 'attr2', got: %s", tmp_json (tmp));
+      }
+      ASSERT_CMPINT ((int) _mongocrypt_cache_num_entries (&cache), ==, 0);
+      _mongocrypt_cache_cleanup (&cache);
+   }
+
+   /* Test invalidate with a custom cmp_attr function. */
+   {
+      _mongocrypt_cache_t cache;
+      _mongocrypt_cache_collinfo_init (&cache);
+      ASSERT_OR_PRINT (
+         _mongocrypt_cache_add_copy (&cache, "attr1", value, status), status);
+      ASSERT_OR_PRINT (
+         _mongocrypt_cache_add_copy (&cache, "attr2", value, status), status);
+      ASSERT_OR_PRINT (
+         _mongocrypt_cache_add_copy (&cache, "unmatched", value, status),
+         status);
+      ASSERT_CMPINT ((int) _mongocrypt_cache_num_entries (&cache), ==, 3);
+      ASSERT (
+         _mongocrypt_cache_remove_matches (&cache, "attr1", match_attr_prefix));
+      ASSERT (_mongocrypt_cache_get (&cache, "attr1", (void **) &tmp));
+      if (NULL != tmp) {
+         TEST_ERROR ("expected not to find 'attr1', got: %s", tmp_json (tmp));
+      }
+      ASSERT (_mongocrypt_cache_get (&cache, "attr2", (void **) &tmp));
+      if (NULL != tmp) {
+         TEST_ERROR ("expected not to find 'attr2', got: %s", tmp_json (tmp));
+      }
+      ASSERT_CMPINT ((int) _mongocrypt_cache_num_entries (&cache), ==, 1);
+      ASSERT (_mongocrypt_cache_get (&cache, "unmatched", (void **) &tmp));
+      ASSERT (bson_equal (value, tmp));
+      bson_destroy (tmp);
+      _mongocrypt_cache_cleanup (&cache);
+   }
+   bson_destroy (value);
+   mongocrypt_status_destroy (status);
+}
+
 void
 _mongocrypt_tester_install_cache (_mongocrypt_tester_t *tester)
 {
    INSTALL_TEST (_test_cache);
    INSTALL_TEST (_test_cache_expiration);
    INSTALL_TEST (_test_cache_duplicates);
+   INSTALL_TEST (_test_cache_remove_matches);
 }

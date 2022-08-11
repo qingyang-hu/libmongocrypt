@@ -72,18 +72,28 @@ _mongocrypt_cache_evict (_mongocrypt_cache_t *cache)
    }
 }
 
-/* Caller must hold mutex. */
+/* _mongocrypt_remove_matches removes all cache entries with a matching
+ * attribute. Caller must hold mutex. If `cmp_attr_override` is NULL,
+ * `cache->cmp_attr` is used to compare attributes.
+ */
 static bool
-_mongocrypt_remove_matches (_mongocrypt_cache_t *cache, void *attr)
+_mongocrypt_remove_matches (_mongocrypt_cache_t *cache,
+                            void *attr,
+                            cache_compare_fn cmp_attr_override)
 {
    _mongocrypt_cache_pair_t *pair, *prev;
 
    prev = NULL;
    pair = cache->pair;
    while (pair) {
+      cache_compare_fn cmp_attr = cache->cmp_attr;
+      if (NULL != cmp_attr_override) {
+         cmp_attr = cmp_attr_override;
+      }
+
       int res;
 
-      if (!cache->cmp_attr (pair->attr, attr, &res)) {
+      if (!cmp_attr (pair->attr, attr, &res)) {
          return false;
       }
 
@@ -200,7 +210,8 @@ _cache_add (_mongocrypt_cache_t *cache,
 
    _mongocrypt_mutex_lock (&cache->mutex);
    _mongocrypt_cache_evict (cache);
-   if (!_mongocrypt_remove_matches (cache, attr)) {
+   if (!_mongocrypt_remove_matches (
+          cache, attr, NULL /* cmp_attr_override */)) {
       CLIENT_ERR ("error removing from cache");
       _mongocrypt_mutex_unlock (&cache->mutex);
       return false;
@@ -286,4 +297,15 @@ _mongocrypt_cache_num_entries (_mongocrypt_cache_t *cache)
 
    _mongocrypt_mutex_unlock (&cache->mutex);
    return count;
+}
+
+bool
+_mongocrypt_cache_remove_matches (_mongocrypt_cache_t *cache,
+                                  void *attr,
+                                  cache_compare_fn cmp_attr)
+{
+   _mongocrypt_mutex_lock (&cache->mutex);
+   bool got = _mongocrypt_remove_matches (cache, attr, cmp_attr);
+   _mongocrypt_mutex_unlock (&cache->mutex);
+   return got;
 }

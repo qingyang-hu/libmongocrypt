@@ -92,5 +92,14 @@ _mongocrypt_cache_set_expiration (_mongocrypt_cache_t *cache, uint64_t milli);
 uint32_t
 _mongocrypt_cache_num_entries (_mongocrypt_cache_t *cache);
 
+/* _mongocrypt_cache_remove_matches removes a cache entry.
+ * Returns false on error. Returns true on success.
+ * It is not an error if `attr` is not in the cache.
+ * If `cmp_attr` is NULL, `cache->cmp_attr` is used as the match function. */
+bool
+_mongocrypt_cache_remove_matches (_mongocrypt_cache_t *cache,
+                                  void *attr,
+                                  cache_compare_fn cmp_attr);
+
 
 #endif /* MONGOCRYPT_CACHE_PRIVATE */
