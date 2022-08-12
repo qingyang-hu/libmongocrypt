@@ -2383,6 +2383,103 @@ needs_ismaster_check (mongocrypt_ctx_t *ctx)
                                 0 == strcmp (ectx->cmd_name, "createIndexes"));
 }
 
+/* match_attr_db sets `out` to 0 if and only if `a` and `b` have the same
+ * database prefix. */
+static bool
+match_attr_db (void *a, void *b, int *out)
+{
+   char *a_str = (char *) a;
+   char *b_str = (char *) b;
+   *out = 1;
+   char *a_dot = strstr (a_str, ".");
+   if (NULL == a_dot) {
+      // Unexpected. collinfo cache attributes are expected to have the form
+      // "db.coll".
+      return false;
+   }
+   size_t n_to_compare = a_dot - a_str + 1; // include "."
+   if (0 == strncmp (a_str, b_str, n_to_compare)) {
+      *out = 0;
+   }
+   return true;
+}
+
+/* _check_for_schema_cache_invalidation checks whether the command should
+ * invalidate any cached JSON schema. `coll_name` may be NULL for database
+ * commands (e.g. `dropDatabase`). */
+static bool
+_check_for_schema_cache_invalidation (const char *cmd_name,
+                                      const char *db_name,
+                                      const char *coll_name /* may be NULL */,
+                                      _mongocrypt_buffer_t *cmd,
+                                      _mongocrypt_cache_t *cache_collinfo,
+                                      mongocrypt_status_t *status)
+{
+   bool ok = false;
+   char *db_with_dot = bson_strdup_printf ("%s.", db_name);
+   char *ns = NULL;
+
+   if (NULL == coll_name) {
+      /* Invalidate all target collections of the database for "dropDatabase".
+       */
+      if (0 == strcmp (cmd_name, "dropDatabase")) {
+         if (!_mongocrypt_cache_remove_matches (
+                cache_collinfo, (void *) db_with_dot, match_attr_db)) {
+            CLIENT_ERR ("error attempting to remove %s from collinfo cache",
+                        ns);
+            goto fail;
+         }
+      }
+      goto success;
+   }
+
+   ns = bson_strdup_printf ("%s.%s", db_name, coll_name);
+
+   /* Invalidate the target collection of "create" or "drop" commands. */
+   if (0 == strcmp (cmd_name, "create") || 0 == strcmp (cmd_name, "drop")) {
+      if (!_mongocrypt_cache_remove_matches (
+             cache_collinfo, ns, NULL /* cmp_attr */)) {
+         CLIENT_ERR ("error attempting to remove %s from collinfo cache", ns);
+         goto fail;
+      }
+      goto success;
+   }
+
+   /* Invalidate the target collection of the "collMod" command only if the
+    * command includes "validator.$jsonSchema". */
+   if (0 == strcmp (cmd_name, "collMod")) {
+      bson_t cmd_bson;
+      bson_iter_t iter;
+
+      if (!_mongocrypt_buffer_to_bson (cmd, &cmd_bson)) {
+         CLIENT_ERR ("unable to convert command buffer to BSON");
+         return false;
+      }
+
+      if (!bson_iter_init (&iter, &cmd_bson)) {
+         CLIENT_ERR ("unable to iterate over command BSON");
+         return false;
+      }
+
+      if (bson_iter_find_descendant (&iter, "validator.$jsonSchema", &iter)) {
+         if (!_mongocrypt_cache_remove_matches (
+                cache_collinfo, ns, NULL /* cmp_attr */)) {
+            CLIENT_ERR ("error attempting to remove %s from collinfo cache",
+                        ns);
+            goto fail;
+         }
+      }
+      goto success;
+   }
+
+success:
+   ok = true;
+fail:
+   bson_free (ns);
+   bson_free (db_with_dot);
+   return ok;
+}
+
 bool
 mongocrypt_ctx_encrypt_init (mongocrypt_ctx_t *ctx,
                              const char *db,
@@ -2436,6 +2533,20 @@ mongocrypt_ctx_encrypt_init (mongocrypt_ctx_t *ctx,
       return _mongocrypt_ctx_fail (ctx);
    }
 
+   if (!_mongocrypt_validate_and_copy_string (db, db_len, &ectx->db_name) ||
+       0 == strlen (ectx->db_name)) {
+      return _mongocrypt_ctx_fail_w_msg (ctx, "invalid db");
+   }
+
+   if (!_check_for_schema_cache_invalidation (ectx->cmd_name,
+                                              ectx->db_name,
+                                              ectx->coll_name,
+                                              &ectx->original_cmd,
+                                              &ctx->crypt->cache_collinfo,
+                                              ctx->status)) {
+      return _mongocrypt_ctx_fail (ctx);
+   }
+
    if (bypass) {
       ctx->nothing_to_do = true;
       ctx->state = MONGOCRYPT_CTX_READY;
@@ -2448,11 +2559,6 @@ mongocrypt_ctx_encrypt_init (mongocrypt_ctx_t *ctx,
       return _mongocrypt_ctx_fail_w_msg (
          ctx,
          "unexpected error: did not bypass or error but no collection name");
-   }
-
-   if (!_mongocrypt_validate_and_copy_string (db, db_len, &ectx->db_name) ||
-       0 == strlen (ectx->db_name)) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "invalid db");
    }
 
    ectx->ns = bson_strdup_printf ("%s.%s", ectx->db_name, ectx->coll_name);
