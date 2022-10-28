@@ -879,6 +879,36 @@ _test_random_int64 (_mongocrypt_tester_t *tester)
    mongocrypt_destroy (crypt);
 }
 
+static void
+test_large_input (_mongocrypt_tester_t *tester)
+{
+   _mongocrypt_buffer_t key = {0}, iv = {0}, in = {0}, out = {0};
+   _mongocrypt_buffer_resize (&key, 32);
+   _mongocrypt_buffer_resize (&iv, 16);
+   _mongocrypt_buffer_resize (&in, UINT32_C (0xFFFFFFFF));
+   _mongocrypt_buffer_resize (&out, UINT32_C (0xFFFFFFFF));
+   uint32_t bytes_written;
+   mongocrypt_status_t *status = mongocrypt_status_new ();
+   bool ok = _native_crypto_aes_256_cbc_encrypt (
+      (aes_256_args_t){.key = &key,
+                       .iv = &iv,
+                       .in = &in,
+                       .out = &out,
+                       .bytes_written = &bytes_written,
+                       .status = status});
+   ASSERT_OK_STATUS (
+      ok,
+      status); // Returns an empty error from CommonCrypto: test_large_input():
+               // ok failed with msg: error in EVP_EncryptFinal_ex:
+               // error:0607F08A:digital envelope
+               // routines:EVP_EncryptFinal_ex:data not multiple of block length
+   _mongocrypt_buffer_cleanup (&out);
+   _mongocrypt_buffer_cleanup (&in);
+   _mongocrypt_buffer_cleanup (&iv);
+   _mongocrypt_buffer_cleanup (&key);
+   mongocrypt_status_destroy (status);
+}
+
 void
 _mongocrypt_tester_install_crypto (_mongocrypt_tester_t *tester)
 {
@@ -891,4 +921,5 @@ _mongocrypt_tester_install_crypto (_mongocrypt_tester_t *tester)
    INSTALL_TEST (_test_fle2_aead_decrypt);
    INSTALL_TEST (_test_fle2_roundtrip);
    INSTALL_TEST (_test_random_int64);
+   INSTALL_TEST (test_large_input);
 }
