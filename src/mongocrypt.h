@@ -510,6 +510,7 @@ void mongocrypt_destroy(mongocrypt_t *crypt);
  * @note For a numeric value that can be compared against, use
  * @ref mongocrypt_crypt_shared_lib_version.
  */
+does not compile
 MONGOCRYPT_EXPORT
 const char *mongocrypt_crypt_shared_lib_version_string(const mongocrypt_t *crypt, uint32_t *len);
 
