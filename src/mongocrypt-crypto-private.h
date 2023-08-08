@@ -39,6 +39,7 @@ typedef struct {
     mongocrypt_crypto_fn aes_256_ctr_decrypt;
     mongocrypt_crypto_fn aes_256_ecb_encrypt;
     mongocrypt_random_fn random;
+    mongocrypt_random_array_fn random_array;
     mongocrypt_hmac_fn hmac_sha_512;
     mongocrypt_hmac_fn hmac_sha_256;
     mongocrypt_hash_fn sha_256;

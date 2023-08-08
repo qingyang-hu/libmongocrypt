@@ -1287,6 +1287,26 @@ typedef bool (*mongocrypt_hash_fn)(void *ctx,
  */
 typedef bool (*mongocrypt_random_fn)(void *ctx, mongocrypt_binary_t *out, uint32_t count, mongocrypt_status_t *status);
 
+/**
+ * An array variant of `mongocrypt_hash_fn`.
+ * `out` and `count` are arrays of `num_entries` entries.
+ * See `mongocrypt_random_fn` for a description of the entries.
+ */
+typedef bool (*mongocrypt_random_array_fn)(void *ctx,
+                                           mongocrypt_binary_t *out,
+                                           uint32_t *count,
+                                           uint32_t num_entries,
+                                           mongocrypt_status_t *status);
+
+MONGOCRYPT_EXPORT
+bool mongocrypt_setopt_crypto_hook_random_array(mongocrypt_t *crypt, mongocrypt_random_array_fn random);
+
+/**
+ * Sets the context passed to crypto callbacks.
+ * The context overwrites the context passed in `mongocrypt_setopt_crypto_hooks`.
+ */
+MONGOCRYPT_EXPORT
+bool mongocrypt_setopt_crypto_context(mongocrypt_t *crypt, void *ctx);
 MONGOCRYPT_EXPORT
 bool mongocrypt_setopt_crypto_hooks(mongocrypt_t *crypt,
                                     mongocrypt_crypto_fn aes_256_cbc_encrypt,

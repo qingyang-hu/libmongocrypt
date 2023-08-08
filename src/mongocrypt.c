@@ -1375,3 +1375,23 @@ void mongocrypt_setopt_bypass_query_analysis(mongocrypt_t *crypt) {
 
     crypt->opts.bypass_query_analysis = true;
 }
+
+bool mongocrypt_setopt_crypto_hook_random_array(mongocrypt_t *crypt, mongocrypt_random_array_fn random_array) {
+    BSON_ASSERT_PARAM(crypt);
+    if (!crypt->crypto) {
+        crypt->crypto = bson_malloc0(sizeof(*crypt->crypto));
+        BSON_ASSERT(crypt->crypto);
+    }
+    crypt->crypto->random_array = random_array;
+    return true;
+}
+
+bool mongocrypt_setopt_crypto_context(mongocrypt_t *crypt, void *ctx) {
+    BSON_ASSERT_PARAM(crypt);
+    if (!crypt->crypto) {
+        crypt->crypto = bson_malloc0(sizeof(*crypt->crypto));
+        BSON_ASSERT(crypt->crypto);
+    }
+    crypt->crypto->ctx = ctx;
+    return true;
+}
