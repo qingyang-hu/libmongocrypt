@@ -1307,6 +1307,13 @@ bool mongocrypt_setopt_crypto_hook_random_array(mongocrypt_t *crypt, mongocrypt_
  */
 MONGOCRYPT_EXPORT
 bool mongocrypt_setopt_crypto_context(mongocrypt_t *crypt, void *ctx);
+
+// `mongocrypt_test_random_array` is a temporary test utility.
+// Calls the hook set in `mongocrypt_setopt_crypto_hook_random_array` with two requests for random of count 123 and 456.
+// Useful for a test of accessing array values in binding libraries.
+MONGOCRYPT_EXPORT
+void mongocrypt_test_random_array(mongocrypt_t *crypt);
+
 MONGOCRYPT_EXPORT
 bool mongocrypt_setopt_crypto_hooks(mongocrypt_t *crypt,
                                     mongocrypt_crypto_fn aes_256_cbc_encrypt,

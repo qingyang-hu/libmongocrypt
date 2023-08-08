@@ -757,6 +757,34 @@ void _test_fle2_crypto_via_ecb_hook(_mongocrypt_tester_t *tester) {
 }
 #endif
 
+typedef struct {
+    size_t hook_random_array;
+} testhook_counters_t;
+
+static bool testhook_random_array(void *ctx,
+                                  mongocrypt_binary_t *out,
+                                  uint32_t *count,
+                                  uint32_t num_entries,
+                                  mongocrypt_status_t *status) {
+    testhook_counters_t *counters = ctx;
+    counters->hook_random_array++;
+    ASSERT_CMPUINT32(num_entries, ==, 2);
+    ASSERT_CMPUINT32(*count, ==, 123);
+    ASSERT_CMPUINT32(*(count + 1), ==, 456);
+    return true;
+}
+
+static void _test_crypto_hook_random_array(_mongocrypt_tester_t *tester) {
+    testhook_counters_t counters = {0};
+    mongocrypt_t *crypt = mongocrypt_new();
+    ASSERT_OK(mongocrypt_setopt_crypto_hook_random_array(crypt, testhook_random_array), crypt);
+    ASSERT_OK(mongocrypt_setopt_crypto_context(crypt, &counters), crypt);
+    ASSERT_CMPINT32(counters.hook_random_array, ==, 0);
+    mongocrypt_test_random_array(crypt);
+    ASSERT_CMPINT32(counters.hook_random_array, ==, 1);
+    mongocrypt_destroy(crypt);
+}
+
 void _mongocrypt_tester_install_crypto_hooks(_mongocrypt_tester_t *tester) {
     INSTALL_TEST_CRYPTO(_test_crypto_hooks_encryption, CRYPTO_OPTIONAL);
     INSTALL_TEST_CRYPTO(_test_crypto_hooks_decryption, CRYPTO_OPTIONAL);
@@ -770,4 +798,5 @@ void _mongocrypt_tester_install_crypto_hooks(_mongocrypt_tester_t *tester) {
 #ifdef MONGOCRYPT_ENABLE_CRYPTO_LIBCRYPTO
     INSTALL_TEST(_test_fle2_crypto_via_ecb_hook);
 #endif
+    INSTALL_TEST_CRYPTO(_test_crypto_hook_random_array, CRYPTO_OPTIONAL);
 }
