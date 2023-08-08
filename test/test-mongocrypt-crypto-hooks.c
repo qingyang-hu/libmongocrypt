@@ -762,7 +762,7 @@ typedef struct {
 } testhook_counters_t;
 
 static bool testhook_random_array(void *ctx,
-                                  mongocrypt_binary_t *out,
+                                  mongocrypt_binary_t **out,
                                   uint32_t *count,
                                   uint32_t num_entries,
                                   mongocrypt_status_t *status) {
@@ -771,6 +771,10 @@ static bool testhook_random_array(void *ctx,
     ASSERT_CMPUINT32(num_entries, ==, 2);
     ASSERT_CMPUINT32(*count, ==, 123);
     ASSERT_CMPUINT32(*(count + 1), ==, 456);
+    mongocrypt_binary_t *b1 = out[0];
+    ASSERT_CMPINT32(mongocrypt_binary_len(b1), ==, 123);
+    mongocrypt_binary_t *b2 = out[1];
+    ASSERT_CMPINT32(mongocrypt_binary_len(b2), ==, 456);
     return true;
 }
 

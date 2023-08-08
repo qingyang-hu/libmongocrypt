@@ -976,6 +976,10 @@ bool mongocrypt_setopt_crypto_hooks(mongocrypt_t *crypt,
 
     mongocrypt_status_t *status = crypt->status;
 
+    // Ignore crypto hooks.
+    printf("WARNING: ignoring crypto hooks for testing: v2\n");
+    return true;
+
     if (!crypt->crypto) {
         crypt->crypto = bson_malloc0(sizeof(*crypt->crypto));
         BSON_ASSERT(crypt->crypto);
@@ -1394,4 +1398,21 @@ bool mongocrypt_setopt_crypto_context(mongocrypt_t *crypt, void *ctx) {
     }
     crypt->crypto->ctx = ctx;
     return true;
+}
+
+void mongocrypt_test_random_array(mongocrypt_t *crypt) {
+    BSON_ASSERT_PARAM(crypt);
+    BSON_ASSERT(crypt->crypto);
+    BSON_ASSERT(crypt->crypto->random_array);
+
+    uint32_t count_array[2] = {123, 456};
+    _mongocrypt_buffer_t buf1, buf2;
+    _mongocrypt_buffer_init_size(&buf1, count_array[0]);
+    _mongocrypt_buffer_init_size(&buf2, count_array[1]);
+    mongocrypt_binary_t *bin_array[2];
+    bin_array[0] = _mongocrypt_buffer_as_binary(&buf1);
+    bin_array[1] = _mongocrypt_buffer_as_binary(&buf2);
+    BSON_ASSERT(crypt->crypto->random_array(crypt->crypto->ctx, bin_array, count_array, 2, crypt->status));
+    _mongocrypt_buffer_cleanup(&buf2);
+    _mongocrypt_buffer_cleanup(&buf1);
 }

@@ -1293,7 +1293,7 @@ typedef bool (*mongocrypt_random_fn)(void *ctx, mongocrypt_binary_t *out, uint32
  * See `mongocrypt_random_fn` for a description of the entries.
  */
 typedef bool (*mongocrypt_random_array_fn)(void *ctx,
-                                           mongocrypt_binary_t *out,
+                                           mongocrypt_binary_t **out,
                                            uint32_t *count,
                                            uint32_t num_entries,
                                            mongocrypt_status_t *status);
@@ -1310,6 +1310,7 @@ bool mongocrypt_setopt_crypto_context(mongocrypt_t *crypt, void *ctx);
 
 // `mongocrypt_test_random_array` is a temporary test utility.
 // Calls the hook set in `mongocrypt_setopt_crypto_hook_random_array` with two requests for random of count 123 and 456.
+// Callback is expected to return true.
 // Useful for a test of accessing array values in binding libraries.
 MONGOCRYPT_EXPORT
 void mongocrypt_test_random_array(mongocrypt_t *crypt);
@@ -1353,8 +1354,7 @@ bool mongocrypt_setopt_aes_256_ctr(mongocrypt_t *crypt,
  * @param[in] crypt The @ref mongocrypt_t object.
  * @param[in] aes_256_ecb_encrypt The crypto callback function for encrypt
  * operation.
- * @param[in] ctx A context passed as an argument to the crypto callback
- * every invocation.
+ * @param[in] ctx Ignored. Use `mongocrypt_setopt_crypto_context`.
  * @pre @ref mongocrypt_init has not been called on @p crypt.
  * @returns A boolean indicating success. If false, an error status is set.
  * Retrieve it with @ref mongocrypt_status
