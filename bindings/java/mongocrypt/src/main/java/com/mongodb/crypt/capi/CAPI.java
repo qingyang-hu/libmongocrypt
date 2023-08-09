@@ -284,6 +284,10 @@ public class CAPI {
         boolean random(Pointer ctx, mongocrypt_binary_t out, int count, mongocrypt_status_t status);
     }
 
+    public interface mongocrypt_random_array_fn extends Callback {
+        boolean random(Pointer ctx, Pointer out, Pointer count, int num_entries, mongocrypt_status_t status);
+    }
+
     /**
      * Allocate a new @ref mongocrypt_t object.
      * <p>
@@ -309,6 +313,23 @@ public class CAPI {
                                   mongocrypt_log_fn_t log_fn,
                                   Pointer log_ctx);
 
+    /**
+     * An array variant of `mongocrypt_setopt_crypto_hook_random`.
+     * @param crypt The @ref mongocrypt_t object.
+     * @param random The callback.
+     * @return
+     */
+    public static native boolean
+    mongocrypt_setopt_crypto_hook_random_array(mongocrypt_t crypt, mongocrypt_random_array_fn random);
+
+    /**
+     * Calls the hook set in `mongocrypt_setopt_crypto_hook_random_array` with two requests for random of count 123 and 456.
+     * Callback is expected to return true.
+     * Useful for a test of accessing array values in binding libraries.
+     * @param crypt The @ref mongocrypt_t object.
+     */
+    public static native
+    void mongocrypt_test_random_array(mongocrypt_t crypt);
 
     public static native boolean
     mongocrypt_setopt_crypto_hooks(mongocrypt_t crypt,
@@ -319,6 +340,8 @@ public class CAPI {
                                    mongocrypt_hmac_fn hmac_sha_256,
                                    mongocrypt_hash_fn sha_256,
                                    Pointer ctx);
+
+
 
     /**
      * Set a crypto hook for the AES256-CTR operations.

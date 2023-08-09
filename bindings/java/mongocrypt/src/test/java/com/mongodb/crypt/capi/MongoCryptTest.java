@@ -18,6 +18,8 @@
 package com.mongodb.crypt.capi;
 
 import com.mongodb.crypt.capi.MongoCryptContext.State;
+import com.sun.jna.Native;
+import com.sun.jna.Pointer;
 import org.bson.BsonBinary;
 import org.bson.BsonBinarySubType;
 import org.bson.BsonDocument;
@@ -40,14 +42,65 @@ import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.mongodb.crypt.capi.CAPI.*;
+import static com.mongodb.crypt.capi.CAPI.mongocrypt_status_destroy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-
 @SuppressWarnings("SameParameterValue")
 public class MongoCryptTest {
+
+    class RandomArrayTestCallback implements mongocrypt_random_array_fn {
+        private int numCalls;
+
+        @Override
+        public boolean random(Pointer ctx, Pointer out, Pointer count, int num_entries, mongocrypt_status_t status) {
+            final int sizeof_int32 = 4;
+            final int sizeof_pointer = Native.POINTER_SIZE;
+            assertEquals(num_entries, 2);
+            // Q: Why is it not an error to construct a `mongocrypt_binary_t`?
+            // https://java-native-access.github.io/jna/5.11.0/javadoc/com/sun/jna/PointerType.html documents default constructor as protected.
+            // A:
+            {
+                Pointer ptr_to_bin = out.getPointer(0 * sizeof_pointer);
+                mongocrypt_binary_t bin = new mongocrypt_binary_t();
+                bin.setPointer(ptr_to_bin);
+                assertEquals(mongocrypt_binary_len(bin), 123);
+            }
+
+            {
+                Pointer ptr_to_bin = out.getPointer(1 * sizeof_pointer);
+                mongocrypt_binary_t bin = new mongocrypt_binary_t();
+                bin.setPointer(ptr_to_bin);
+                assertEquals(mongocrypt_binary_len(bin), 456);
+            }
+            numCalls++;
+            return true;
+        }
+    }
+
+    private void throwExceptionFromStatus(mongocrypt_t crypt) {
+        CAPI.mongocrypt_status_t status = mongocrypt_status_new();
+        mongocrypt_status(crypt, status);
+        MongoCryptException e = new MongoCryptException(status);
+        mongocrypt_status_destroy(status);
+        throw e;
+    }
+
+    @Test
+    public void testRandomArrayCallback() {
+        CAPI.mongocrypt_t crypt = mongocrypt_new();
+        RandomArrayTestCallback cb = new RandomArrayTestCallback();
+        if (!mongocrypt_setopt_crypto_hook_random_array(crypt, cb)) {
+            throwExceptionFromStatus(crypt);
+        }
+        assertEquals(cb.numCalls, 0);
+        mongocrypt_test_random_array(crypt);
+        assertEquals(cb.numCalls, 1);
+        mongocrypt_destroy (crypt);
+    }
     @Test
     public void testEncrypt() throws URISyntaxException, IOException {
         MongoCrypt mongoCrypt = createMongoCrypt();
@@ -207,6 +260,8 @@ public class MongoCryptTest {
         BsonDocument valueToEncrypt = getResourceAsDocument("fle2-find-range-explicit-v2/int32/value-to-encrypt.json");
         BsonDocument rangeOptions = getResourceAsDocument("fle2-find-range-explicit-v2/int32/rangeopts.json");
         BsonDocument expectedEncryptedPayload = getResourceAsDocument("fle2-find-range-explicit-v2/int32/encrypted-payload.json");
+
+        System.out.println("How is this passing?");
 
         MongoExplicitEncryptOptions options = MongoExplicitEncryptOptions.builder()
                 .keyId(new BsonBinary(BsonBinarySubType.UUID_STANDARD, Base64.getDecoder().decode("q83vqxI0mHYSNBI0VniQEg==")))
