@@ -1302,6 +1302,40 @@ MONGOCRYPT_EXPORT
 bool mongocrypt_setopt_crypto_hook_random_array(mongocrypt_t *crypt, mongocrypt_random_array_fn random);
 
 /**
+ * An array variant of `mongocrypt_crypto_fn`
+ *
+ * `key`, `iv`, `in`, `out`, and `bytes_written` are arrays of `num_entries` entries.
+ * See `mongocrypt_crypto_fn` for a description of the entries.
+ */
+typedef bool (*mongocrypt_crypto_array_fn)(void *ctx,
+                                           mongocrypt_binary_t **key,
+                                           mongocrypt_binary_t **iv,
+                                           mongocrypt_binary_t **in,
+                                           mongocrypt_binary_t **out,
+                                           uint32_t **bytes_written,
+                                           uint32_t num_entries,
+                                           mongocrypt_status_t *status);
+
+MONGOCRYPT_EXPORT
+bool mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array(mongocrypt_t *crypt, mongocrypt_crypto_array_fn hook);
+
+/**
+ * An array variant of `mongocrypt_hmac_fn`
+ *
+ * `key`, `in`, and `out` are arrays of `num_entries` entries.
+ * See `mongocrypt_hmac_fn` for a description of the entries.
+ */
+typedef bool (*mongocrypt_hmac_array_fn)(void *ctx,
+                                         mongocrypt_binary_t **key,
+                                         mongocrypt_binary_t **in,
+                                         mongocrypt_binary_t **out,
+                                         uint32_t num_entries,
+                                         mongocrypt_status_t *status);
+
+MONGOCRYPT_EXPORT
+bool mongocrypt_setopt_crypto_hook_hmac_sha_512_array(mongocrypt_t *crypt, mongocrypt_hmac_array_fn hook);
+
+/**
  * Sets the context passed to crypto callbacks.
  * The context overwrites the context passed in `mongocrypt_setopt_crypto_hooks`.
  */

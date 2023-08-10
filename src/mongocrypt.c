@@ -1400,6 +1400,26 @@ bool mongocrypt_setopt_crypto_context(mongocrypt_t *crypt, void *ctx) {
     return true;
 }
 
+bool mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array(mongocrypt_t *crypt, mongocrypt_crypto_array_fn hook) {
+    BSON_ASSERT_PARAM(crypt);
+    if (!crypt->crypto) {
+        crypt->crypto = bson_malloc0(sizeof(*crypt->crypto));
+        BSON_ASSERT(crypt->crypto);
+    }
+    crypt->crypto->aes_256_cbc_decrypt_array = hook;
+    return true;
+}
+
+bool mongocrypt_setopt_crypto_hook_hmac_sha_512_array(mongocrypt_t *crypt, mongocrypt_hmac_array_fn hook) {
+    BSON_ASSERT_PARAM(crypt);
+    if (!crypt->crypto) {
+        crypt->crypto = bson_malloc0(sizeof(*crypt->crypto));
+        BSON_ASSERT(crypt->crypto);
+    }
+    crypt->crypto->hmac_sha_512_array = hook;
+    return true;
+}
+
 void mongocrypt_test_random_array(mongocrypt_t *crypt) {
     BSON_ASSERT_PARAM(crypt);
     BSON_ASSERT(crypt->crypto);

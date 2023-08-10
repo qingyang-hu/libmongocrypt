@@ -1,0 +1,14 @@
+{
+    "encrypted_foo": {
+        "$binary": {
+            "base64": "AWFhYWFhYWFhYWFhYWFhYWECK2o5DX7HaGJ69bxv9w1tHxl8C5EuQaShtvMaUt8+oukh2kDLRIO3DlnAxaE0LP1Zbf+ZBU3kBmLypNYUZsGmjg==",
+            "subType": "06"
+        }
+    },
+    "encrypted_bar": {
+        "$binary": {
+            "base64": "AWFhYWFhYWFhYWFhYWFhYWECn5NTdEGwoRXz13IOTQ7gBxCCgiAQvFLgnlRpblJE7lC2n7btGbs804X3G1JzD/HUeocmwusZ3ymkCnCHmNTGVA==",
+            "subType": "06"
+        }
+    }
+}
