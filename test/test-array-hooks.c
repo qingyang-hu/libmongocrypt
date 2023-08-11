@@ -110,6 +110,97 @@ static void test_decrypt_with_array_hooks(_mongocrypt_tester_t *tester) {
     testfixture_destroy(tf);
 }
 
+// `init_and_pad_buf` initializes a buffer data with a prefix string and pads with zeroes to a desired length.
+static void init_and_pad_buf(_mongocrypt_buffer_t *buf, const char *prefix, uint32_t desired_len) {
+    ASSERT_CMPSIZE_T(strlen(prefix), <, (size_t)desired_len);
+    _mongocrypt_buffer_init_size(buf, desired_len);
+    memcpy(buf->data, prefix, strlen(prefix));
+}
+
+static void test_decrypt_with_array(_mongocrypt_tester_t *tester) {
+    mongocrypt_status_t *status = mongocrypt_status_new();
+    mongocrypt_t *crypt = _mongocrypt_tester_mongocrypt(TESTER_MONGOCRYPT_DEFAULT);
+
+    _mongocrypt_buffer_t plaintexts[2];
+    ASSERT(_mongocrypt_buffer_from_string(&plaintexts[0], "foo"));
+    ASSERT(_mongocrypt_buffer_from_string(&plaintexts[1], "bar"));
+
+    _mongocrypt_buffer_t keys[2];
+    init_and_pad_buf(&keys[0], "K1", MONGOCRYPT_KEY_LEN);
+    init_and_pad_buf(&keys[1], "K2", MONGOCRYPT_KEY_LEN);
+
+    _mongocrypt_buffer_t associated_datas[2];
+    ASSERT(_mongocrypt_buffer_from_string(&associated_datas[0], "A1"));
+    ASSERT(_mongocrypt_buffer_from_string(&associated_datas[1], "A2"));
+
+    const _mongocrypt_value_encryption_algorithm_t *fle1alg = _mcFLE1Algorithm();
+
+    // Encrypt two values.
+    _mongocrypt_buffer_t ciphertexts[2] = {0};
+    {
+        for (size_t i = 0; i < 2; i++) {
+            uint32_t ciphertext_len = fle1alg->get_ciphertext_len(plaintexts[i].len, status);
+            ASSERT_OK_STATUS(ciphertext_len > 0, status);
+            _mongocrypt_buffer_resize(&ciphertexts[i], ciphertext_len);
+        }
+
+        _mongocrypt_buffer_t ivs[2];
+        init_and_pad_buf(&ivs[0], "IV1", MONGOCRYPT_IV_LEN);
+        init_and_pad_buf(&ivs[1], "IV2", MONGOCRYPT_IV_LEN);
+
+        uint32_t bytes_written[2];
+
+        for (size_t i = 0; i < 2; i++) {
+            bool ok = fle1alg->do_encrypt(crypt->crypto,
+                                          &ivs[i],
+                                          &associated_datas[i],
+                                          &keys[i],
+                                          &plaintexts[i],
+                                          &ciphertexts[i],
+                                          &bytes_written[i],
+                                          status);
+            ASSERT_OK_STATUS(ok, status);
+        }
+
+        _mongocrypt_buffer_cleanup(&ivs[1]);
+        _mongocrypt_buffer_cleanup(&ivs[0]);
+    }
+
+    // Decrypt the two ciphertexts with array variant of decrypt helper.
+    _mongocrypt_buffer_t decrypted[2] = {0};
+    {
+        for (size_t i = 0; i < 2; i++) {
+            uint32_t plaintext_len = fle1alg->get_plaintext_len(ciphertexts[i].len, status);
+            ASSERT_OK_STATUS(plaintext_len > 0, status);
+            _mongocrypt_buffer_resize(&decrypted[i], plaintext_len);
+        }
+        uint32_t bytes_written[2];
+        bool ok = fle1alg->do_decrypt_array(crypt->crypto,
+                                            associated_datas,
+                                            keys,
+                                            ciphertexts,
+                                            decrypted,
+                                            bytes_written,
+                                            2,
+                                            status);
+        ASSERT_OK_STATUS(ok, status);
+    }
+
+    ASSERT_CMPBUF(plaintexts[0], decrypted[0]);
+    ASSERT_CMPBUF(plaintexts[1], decrypted[1]);
+
+    for (size_t i = 0; i < 0; i++) {
+        _mongocrypt_buffer_cleanup(&decrypted[i]);
+        _mongocrypt_buffer_cleanup(&ciphertexts[i]);
+        _mongocrypt_buffer_cleanup(&associated_datas[i]);
+        _mongocrypt_buffer_cleanup(&keys[i]);
+        _mongocrypt_buffer_cleanup(&plaintexts[i]);
+    }
+    mongocrypt_destroy(crypt);
+    mongocrypt_status_destroy(status);
+}
+
 void _mongocrypt_tester_install_array_hooks(_mongocrypt_tester_t *tester) {
     INSTALL_TEST(test_decrypt_with_array_hooks);
+    INSTALL_TEST(test_decrypt_with_array);
 }

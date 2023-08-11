@@ -1081,6 +1081,26 @@ static bool _mongocrypt_do_decryption(_mongocrypt_crypto_t *crypto,
     return _decrypt_step(crypto, mode, &IV, &Ke, &S, plaintext, bytes_written, status);
 }
 
+// `_mongocrypt_do_decryption_array` is an array variant of `_mongocrypt_do_decryption`
+// `associated_data`, `key`, `ciphertext`, `plaintext`, and `bytes_written` are arrays of `num_entries` entries.
+// See `_mongocrypt_do_decryption` for a description of the entries.
+//
+static bool _mongocrypt_do_decryption_array(_mongocrypt_crypto_t *crypto,
+                                            _mongocrypt_key_format_t key_format,
+                                            _mongocrypt_mac_format_t mac_format,
+                                            _mongocrypt_encryption_mode_t mode,
+                                            _mongocrypt_hmac_type_t hmac,
+                                            const _mongocrypt_buffer_t *associated_data,
+                                            const _mongocrypt_buffer_t *key,
+                                            const _mongocrypt_buffer_t *ciphertext,
+                                            _mongocrypt_buffer_t *plaintext,
+                                            uint32_t *bytes_written,
+                                            uint32_t num_entries,
+                                            mongocrypt_status_t *status) {
+    CLIENT_ERR("Not yet implemented");
+    return false;
+}
+
 #define DECLARE_ALGORITHM(name, mode, hmac)                                                                            \
     static uint32_t _mc_##name##_ciphertext_len(uint32_t plaintext_len, mongocrypt_status_t *status) {                 \
         return _mongocrypt_calculate_ciphertext_len(plaintext_len, MODE_##mode, HMAC_##hmac, status);                  \
@@ -1128,13 +1148,39 @@ static bool _mongocrypt_do_decryption(_mongocrypt_crypto_t *crypto,
                                          written,                                                                      \
                                          status);                                                                      \
     }                                                                                                                  \
+                                                                                                                       \
+    static bool _mc_##name##_do_decryption_array(_mongocrypt_crypto_t *crypto,                                         \
+                                                 const _mongocrypt_buffer_t *aad,                                      \
+                                                 const _mongocrypt_buffer_t *key,                                      \
+                                                 const _mongocrypt_buffer_t *ciphertext,                               \
+                                                 _mongocrypt_buffer_t *plaintext,                                      \
+                                                 uint32_t *written,                                                    \
+                                                 uint32_t num_entries,                                                 \
+                                                 mongocrypt_status_t *status) {                                        \
+        return _mongocrypt_do_decryption_array(crypto,                                                                 \
+                                               KEY_FORMAT_##name,                                                      \
+                                               MAC_FORMAT_##name,                                                      \
+                                               MODE_##mode,                                                            \
+                                               HMAC_##hmac,                                                            \
+                                               aad,                                                                    \
+                                               key,                                                                    \
+                                               ciphertext,                                                             \
+                                               plaintext,                                                              \
+                                               written,                                                                \
+                                               num_entries,                                                            \
+                                               status);                                                                \
+    }                                                                                                                  \
     static const _mongocrypt_value_encryption_algorithm_t _mc##name##Algorithm_definition = {                          \
         _mc_##name##_ciphertext_len,                                                                                   \
         _mc_##name##_plaintext_len,                                                                                    \
         _mc_##name##_do_encryption,                                                                                    \
         _mc_##name##_do_decryption,                                                                                    \
+        _mc_##name##_do_decryption_array,                                                                              \
     };                                                                                                                 \
-    const _mongocrypt_value_encryption_algorithm_t *_mc##name##Algorithm() { return &_mc##name##Algorithm_definition; }
+                                                                                                                       \
+    const _mongocrypt_value_encryption_algorithm_t *_mc##name##Algorithm() {                                           \
+        return &_mc##name##Algorithm_definition;                                                                       \
+    }
 
 // FLE1 algorithm: AES-256-CBC HMAC/SHA-512-256 (SHA-512 truncated to 256 bits)
 DECLARE_ALGORITHM(FLE1, CBC, SHA_512_256)

@@ -65,6 +65,14 @@ typedef bool (*_mongocrypt_do_decryption_fn)(_mongocrypt_crypto_t *crypto,
                                              _mongocrypt_buffer_t *plaintext,
                                              uint32_t *bytes_written,
                                              mongocrypt_status_t *status) MONGOCRYPT_WARN_UNUSED_RESULT;
+typedef bool (*_mongocrypt_do_decryption_array_fn)(_mongocrypt_crypto_t *crypto,
+                                                   const _mongocrypt_buffer_t *associated_data,
+                                                   const _mongocrypt_buffer_t *key,
+                                                   const _mongocrypt_buffer_t *ciphertext,
+                                                   _mongocrypt_buffer_t *plaintext,
+                                                   uint32_t *bytes_written,
+                                                   uint32_t num_entries,
+                                                   mongocrypt_status_t *status) MONGOCRYPT_WARN_UNUSED_RESULT;
 
 /**
  * Defines the application layer protocol to use when
@@ -75,6 +83,7 @@ typedef struct {
     _mongocrypt_plaintextlen_fn get_plaintext_len;
     _mongocrypt_do_encryption_fn do_encrypt;
     _mongocrypt_do_decryption_fn do_decrypt;
+    _mongocrypt_do_decryption_array_fn do_decrypt_array;
 } _mongocrypt_value_encryption_algorithm_t;
 
 // FLE1 algorithm: AES-256-CBC HMAC/SHA-512-256 (SHA-512 truncated to 256 bits)
