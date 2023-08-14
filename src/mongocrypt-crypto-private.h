@@ -66,11 +66,11 @@ typedef bool (*_mongocrypt_do_decryption_fn)(_mongocrypt_crypto_t *crypto,
                                              uint32_t *bytes_written,
                                              mongocrypt_status_t *status) MONGOCRYPT_WARN_UNUSED_RESULT;
 typedef bool (*_mongocrypt_do_decryption_array_fn)(_mongocrypt_crypto_t *crypto,
-                                                   const _mongocrypt_buffer_t *associated_data,
-                                                   const _mongocrypt_buffer_t *key,
-                                                   const _mongocrypt_buffer_t *ciphertext,
-                                                   _mongocrypt_buffer_t *plaintext,
-                                                   uint32_t *bytes_written,
+                                                   const _mongocrypt_buffer_t *associated_datas,
+                                                   const _mongocrypt_buffer_t *keys,
+                                                   const _mongocrypt_buffer_t *ciphertexts,
+                                                   _mongocrypt_buffer_t *plaintexts,
+                                                   uint32_t *bytes_writtens,
                                                    uint32_t num_entries,
                                                    mongocrypt_status_t *status) MONGOCRYPT_WARN_UNUSED_RESULT;
 
