@@ -1093,6 +1093,136 @@ static bool _decrypt_step(_mongocrypt_crypto_t *crypto,
     return true;
 }
 
+bool _decrypt_step_array(_mongocrypt_crypto_t *crypto,
+                         _mongocrypt_encryption_mode_t mode,
+                         const _mongocrypt_buffer_t *ivs,
+                         const _mongocrypt_buffer_t *enc_keys,
+                         const _mongocrypt_buffer_t *ciphertexts,
+                         _mongocrypt_buffer_t *plaintexts,
+                         uint32_t *bytes_writtens,
+                         uint32_t num_entries,
+                         mongocrypt_status_t *status) {
+    BSON_ASSERT_PARAM(crypto);
+    BSON_ASSERT_PARAM(ivs);
+    BSON_ASSERT_PARAM(enc_keys);
+    BSON_ASSERT_PARAM(ciphertexts);
+    BSON_ASSERT_PARAM(plaintexts);
+    BSON_ASSERT_PARAM(bytes_writtens);
+
+    for (uint32_t i = 0; i < num_entries; i++) {
+        bytes_writtens[i] = 0;
+    }
+
+    // Check input for errors.
+    for (uint32_t i = 0; i < num_entries; i++) {
+        const _mongocrypt_buffer_t *iv = &ivs[i];
+        const _mongocrypt_buffer_t *enc_key = &enc_keys[i];
+        const _mongocrypt_buffer_t *ciphertext = &ciphertexts[i];
+
+        if (MONGOCRYPT_IV_LEN != iv->len) {
+            CLIENT_ERR("IV should have length %d, but has length %d", MONGOCRYPT_IV_LEN, iv->len);
+            return false;
+        }
+
+        if (MONGOCRYPT_ENC_KEY_LEN != enc_key->len) {
+            CLIENT_ERR("encryption key should have length %d, but has length %d", MONGOCRYPT_ENC_KEY_LEN, enc_key->len);
+            return false;
+        }
+
+        if (mode == MODE_CBC) {
+            if (ciphertext->len % MONGOCRYPT_BLOCK_SIZE > 0) {
+                CLIENT_ERR("error, ciphertext length is not a multiple of block size");
+                return false;
+            }
+        } else {
+            CLIENT_ERR("_decrypt_step_array is not yet implemented for non-CBC decryption");
+            return false;
+        }
+    }
+
+    // Decrypt.
+    if (crypto->aes_256_cbc_decrypt_array) {
+        // Create `mongocrypt_binary_t**` forms of arguments.
+        mongocrypt_binary_t *key_bins = bson_malloc0(sizeof(mongocrypt_binary_t) * num_entries);
+        mongocrypt_binary_t **key_bin_ptrs = bson_malloc0(sizeof(mongocrypt_binary_t *) * num_entries);
+        mongocrypt_binary_t *iv_bins = bson_malloc0(sizeof(mongocrypt_binary_t) * num_entries);
+        mongocrypt_binary_t **iv_bin_ptrs = bson_malloc0(sizeof(mongocrypt_binary_t *) * num_entries);
+        mongocrypt_binary_t *in_bins = bson_malloc0(sizeof(mongocrypt_binary_t) * num_entries);
+        mongocrypt_binary_t **in_bin_ptrs = bson_malloc0(sizeof(mongocrypt_binary_t *) * num_entries);
+        mongocrypt_binary_t *out_bins = bson_malloc0(sizeof(mongocrypt_binary_t) * num_entries);
+        mongocrypt_binary_t **out_bin_ptrs = bson_malloc0(sizeof(mongocrypt_binary_t *) * num_entries);
+        uint32_t **bytes_written_ptrs = bson_malloc0(sizeof(uint32_t *) * num_entries);
+
+        for (uint32_t i = 0; i < num_entries; i++) {
+            _mongocrypt_buffer_to_binary(&enc_keys[i], &key_bins[i]);
+            key_bin_ptrs[i] = &key_bins[i];
+            _mongocrypt_buffer_to_binary(&ivs[i], &iv_bins[i]);
+            iv_bin_ptrs[i] = &iv_bins[i];
+            _mongocrypt_buffer_to_binary(&ciphertexts[i], &in_bins[i]);
+            in_bin_ptrs[i] = &in_bins[i];
+            _mongocrypt_buffer_to_binary(&plaintexts[i], &out_bins[i]);
+            out_bin_ptrs[i] = &out_bins[i];
+            bytes_written_ptrs[i] = &bytes_writtens[i];
+        }
+        bool ok = crypto->aes_256_cbc_decrypt_array(crypto->ctx,
+                                                    key_bin_ptrs,
+                                                    iv_bin_ptrs,
+                                                    in_bin_ptrs,
+                                                    out_bin_ptrs,
+                                                    bytes_written_ptrs,
+                                                    num_entries,
+                                                    status);
+        bson_free(bytes_written_ptrs);
+        bson_free(out_bin_ptrs);
+        bson_free(out_bins);
+        bson_free(in_bin_ptrs);
+        bson_free(in_bins);
+        bson_free(iv_bin_ptrs);
+        bson_free(iv_bins);
+        bson_free(key_bin_ptrs);
+        bson_free(key_bins);
+
+        if (!ok) {
+            return false;
+        }
+    } else {
+        // Use native crypto.
+        for (uint32_t i = 0; i < num_entries; i++) {
+            const _mongocrypt_buffer_t *iv = &ivs[i];
+            const _mongocrypt_buffer_t *enc_key = &enc_keys[i];
+            const _mongocrypt_buffer_t *ciphertext = &ciphertexts[i];
+            _mongocrypt_buffer_t *plaintext = &plaintexts[i];
+            uint32_t *bytes_written = &bytes_writtens[i];
+
+            if (!_crypto_aes_256_cbc_decrypt(crypto,
+                                             (aes_256_args_t){.iv = iv,
+                                                              .key = enc_key,
+                                                              .in = ciphertext,
+                                                              .out = plaintext,
+                                                              .bytes_written = bytes_written,
+                                                              .status = status})) {
+                return false;
+            }
+        }
+    }
+
+    // Subtract padding from `bytes_writtens`.
+    BSON_ASSERT(mode == MODE_CBC);
+    for (uint32_t i = 0; i < num_entries; i++) {
+        uint32_t *bytes_written = &bytes_writtens[i];
+        const _mongocrypt_buffer_t *plaintext = &plaintexts[i];
+        BSON_ASSERT(*bytes_written > 0);
+        uint8_t padding_byte = plaintext->data[*bytes_written - 1];
+        if (padding_byte > 16) {
+            CLIENT_ERR("error, ciphertext malformed padding");
+            return false;
+        }
+        *bytes_written -= padding_byte;
+    }
+
+    return true;
+}
+
 /* ----------------------------------------------------------------------------
  *
  * _mongocrypt_do_decryption --

@@ -42,7 +42,26 @@ static bool testhook_aes_256_cbc_decrypt_array(void *ctx,
                                                mongocrypt_status_t *status) {
     testfixture_t *tf = ctx;
     tf->counts.aes_256_cbc_decrypt_array++;
-    TEST_ERROR("Not yet implemented");
+    for (uint32_t i = 0; i < num_entries; i++) {
+        _mongocrypt_buffer_t key_buf;
+        _mongocrypt_buffer_t iv_buf;
+        _mongocrypt_buffer_t in_buf;
+        _mongocrypt_buffer_t out_buf;
+
+        _mongocrypt_buffer_from_binary(&key_buf, key[i]);
+        _mongocrypt_buffer_from_binary(&iv_buf, iv[i]);
+        _mongocrypt_buffer_from_binary(&in_buf, in[i]);
+        _mongocrypt_buffer_from_binary(&out_buf, out[i]);
+        if (!_native_crypto_aes_256_cbc_decrypt((aes_256_args_t){.key = &key_buf,
+                                                                 .iv = &iv_buf,
+                                                                 .in = &in_buf,
+                                                                 .out = &out_buf,
+                                                                 .bytes_written = bytes_written[i],
+                                                                 .status = status})) {
+            return false;
+        }
+    }
+    return true;
 }
 
 static bool testhook_hmac_sha512_array(void *ctx,
@@ -431,6 +450,218 @@ static void test_hmac_step_array_with_hooks(_mongocrypt_tester_t *tester) {
     testfixture_destroy(tf);
 }
 
+extern bool _decrypt_step_array(_mongocrypt_crypto_t *crypto,
+                                _mongocrypt_encryption_mode_t mode,
+                                const _mongocrypt_buffer_t *ivs,
+                                const _mongocrypt_buffer_t *enc_keys,
+                                const _mongocrypt_buffer_t *ciphertexts,
+                                _mongocrypt_buffer_t *plaintexts,
+                                uint32_t *bytes_writtens,
+                                uint32_t num_entries,
+                                mongocrypt_status_t *status);
+
+static void test_decrypt_step_array(_mongocrypt_tester_t *tester) {
+    mongocrypt_status_t *status = mongocrypt_status_new();
+    mongocrypt_t *crypt = _mongocrypt_tester_mongocrypt(TESTER_MONGOCRYPT_DEFAULT);
+
+    _mongocrypt_buffer_t plaintexts[2];
+    ASSERT(_mongocrypt_buffer_from_string(&plaintexts[0], "foo"));
+    ASSERT(_mongocrypt_buffer_from_string(&plaintexts[1], "bar"));
+
+    _mongocrypt_buffer_t keys[2];
+    init_and_pad_buf(&keys[0], "K1", MONGOCRYPT_KEY_LEN);
+    init_and_pad_buf(&keys[1], "K2", MONGOCRYPT_KEY_LEN);
+
+    _mongocrypt_buffer_t associated_datas[2];
+    ASSERT(_mongocrypt_buffer_from_string(&associated_datas[0], "A1"));
+    ASSERT(_mongocrypt_buffer_from_string(&associated_datas[1], "A2"));
+
+    const _mongocrypt_value_encryption_algorithm_t *fle1alg = _mcFLE1Algorithm();
+
+    _mongocrypt_buffer_t ivs[2];
+    init_and_pad_buf(&ivs[0], "IV1", MONGOCRYPT_IV_LEN);
+    init_and_pad_buf(&ivs[1], "IV2", MONGOCRYPT_IV_LEN);
+
+    // Encrypt two values.
+    _mongocrypt_buffer_t ciphertexts[2] = {0};
+    {
+        for (size_t i = 0; i < 2; i++) {
+            uint32_t ciphertext_len = fle1alg->get_ciphertext_len(plaintexts[i].len, status);
+            ASSERT_OK_STATUS(ciphertext_len > 0, status);
+            _mongocrypt_buffer_resize(&ciphertexts[i], ciphertext_len);
+        }
+
+        uint32_t bytes_written[2];
+
+        for (size_t i = 0; i < 2; i++) {
+            bool ok = fle1alg->do_encrypt(crypt->crypto,
+                                          &ivs[i],
+                                          &associated_datas[i],
+                                          &keys[i],
+                                          &plaintexts[i],
+                                          &ciphertexts[i],
+                                          &bytes_written[i],
+                                          status);
+            ASSERT_OK_STATUS(ok, status);
+        }
+    }
+
+    // Decrypt the two ciphertexts with array variant of decrypt helper.
+    _mongocrypt_buffer_t decrypted[2] = {0};
+    uint32_t bytes_writtens[2];
+    {
+        // `S` is an array of the ciphertexts without IV or HMAC.
+        _mongocrypt_buffer_t S[2];
+        // `enc_keys` is an array of the key segment used for encryption.
+        _mongocrypt_buffer_t enc_keys[2];
+
+        for (size_t i = 0; i < 2; i++) {
+            uint32_t plaintext_len = fle1alg->get_plaintext_len(ciphertexts[i].len, status);
+            ASSERT_OK_STATUS(plaintext_len > 0, status);
+            _mongocrypt_buffer_resize(&decrypted[i], plaintext_len);
+
+            const uint32_t Ke_offset = MONGOCRYPT_MAC_KEY_LEN;
+            ASSERT(_mongocrypt_buffer_from_subrange(&enc_keys[i], &keys[i], Ke_offset, MONGOCRYPT_ENC_KEY_LEN));
+
+            ASSERT(_mongocrypt_buffer_from_subrange(&S[i],
+                                                    &ciphertexts[i],
+                                                    MONGOCRYPT_IV_LEN,
+                                                    ciphertexts[i].len - MONGOCRYPT_IV_LEN - MONGOCRYPT_HMAC_LEN));
+        }
+
+        bool ok = _decrypt_step_array(crypt->crypto, MODE_CBC, ivs, enc_keys, S, decrypted, bytes_writtens, 2, status);
+        ASSERT_OK_STATUS(ok, status);
+        // Set buffer length.
+        for (size_t i = 0; i < 2; i++) {
+            decrypted[i].len = bytes_writtens[i];
+        }
+    }
+
+    ASSERT_CMPBUF(plaintexts[0], decrypted[0]);
+    ASSERT_CMPBUF(plaintexts[1], decrypted[1]);
+
+    for (size_t i = 0; i < 2; i++) {
+        _mongocrypt_buffer_cleanup(&decrypted[i]);
+        _mongocrypt_buffer_cleanup(&ciphertexts[i]);
+        _mongocrypt_buffer_cleanup(&ivs[i]);
+        _mongocrypt_buffer_cleanup(&associated_datas[i]);
+        _mongocrypt_buffer_cleanup(&keys[i]);
+        _mongocrypt_buffer_cleanup(&plaintexts[i]);
+    }
+    mongocrypt_destroy(crypt);
+    mongocrypt_status_destroy(status);
+}
+
+static void test_decrypt_step_array_with_hooks(_mongocrypt_tester_t *tester) {
+    testfixture_t *tf = testfixture_new();
+    mongocrypt_status_t *status = mongocrypt_status_new();
+    // `local_kek_base64` is the base64 encoded KEK used to encrypt the keyMaterial in
+    // ./test/data/key-document-local.json.
+    const char *local_kek_base64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                                   "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+    mongocrypt_t *crypt = mongocrypt_new();
+    // Initialize `crypt`.
+    {
+        mongocrypt_binary_t *kms_providers = TEST_BSON("{ 'local' : { 'key' : '%s' } }", local_kek_base64);
+        ASSERT_OK(mongocrypt_setopt_kms_providers(crypt, kms_providers), crypt);
+        ASSERT_OK(mongocrypt_setopt_crypto_context(crypt, tf), crypt);
+        ASSERT_OK(mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array(crypt, testhook_aes_256_cbc_decrypt_array),
+                  crypt);
+        ASSERT_OK(mongocrypt_init(crypt), crypt);
+    }
+
+    _mongocrypt_buffer_t plaintexts[2];
+    ASSERT(_mongocrypt_buffer_from_string(&plaintexts[0], "foo"));
+    ASSERT(_mongocrypt_buffer_from_string(&plaintexts[1], "bar"));
+
+    _mongocrypt_buffer_t keys[2];
+    init_and_pad_buf(&keys[0], "K1", MONGOCRYPT_KEY_LEN);
+    init_and_pad_buf(&keys[1], "K2", MONGOCRYPT_KEY_LEN);
+
+    _mongocrypt_buffer_t associated_datas[2];
+    ASSERT(_mongocrypt_buffer_from_string(&associated_datas[0], "A1"));
+    ASSERT(_mongocrypt_buffer_from_string(&associated_datas[1], "A2"));
+
+    const _mongocrypt_value_encryption_algorithm_t *fle1alg = _mcFLE1Algorithm();
+
+    _mongocrypt_buffer_t ivs[2];
+    init_and_pad_buf(&ivs[0], "IV1", MONGOCRYPT_IV_LEN);
+    init_and_pad_buf(&ivs[1], "IV2", MONGOCRYPT_IV_LEN);
+
+    // Encrypt two values.
+    _mongocrypt_buffer_t ciphertexts[2] = {0};
+    {
+        for (size_t i = 0; i < 2; i++) {
+            uint32_t ciphertext_len = fle1alg->get_ciphertext_len(plaintexts[i].len, status);
+            ASSERT_OK_STATUS(ciphertext_len > 0, status);
+            _mongocrypt_buffer_resize(&ciphertexts[i], ciphertext_len);
+        }
+
+        uint32_t bytes_written[2];
+
+        for (size_t i = 0; i < 2; i++) {
+            bool ok = fle1alg->do_encrypt(crypt->crypto,
+                                          &ivs[i],
+                                          &associated_datas[i],
+                                          &keys[i],
+                                          &plaintexts[i],
+                                          &ciphertexts[i],
+                                          &bytes_written[i],
+                                          status);
+            ASSERT_OK_STATUS(ok, status);
+        }
+    }
+
+    // Decrypt the two ciphertexts with array variant of decrypt helper.
+    _mongocrypt_buffer_t decrypted[2] = {0};
+    uint32_t bytes_writtens[2];
+    {
+        // `S` is an array of the ciphertexts without IV or HMAC.
+        _mongocrypt_buffer_t S[2];
+        // `enc_keys` is an array of the key segment used for encryption.
+        _mongocrypt_buffer_t enc_keys[2];
+
+        for (size_t i = 0; i < 2; i++) {
+            uint32_t plaintext_len = fle1alg->get_plaintext_len(ciphertexts[i].len, status);
+            ASSERT_OK_STATUS(plaintext_len > 0, status);
+            _mongocrypt_buffer_resize(&decrypted[i], plaintext_len);
+
+            const uint32_t Ke_offset = MONGOCRYPT_MAC_KEY_LEN;
+            ASSERT(_mongocrypt_buffer_from_subrange(&enc_keys[i], &keys[i], Ke_offset, MONGOCRYPT_ENC_KEY_LEN));
+
+            ASSERT(_mongocrypt_buffer_from_subrange(&S[i],
+                                                    &ciphertexts[i],
+                                                    MONGOCRYPT_IV_LEN,
+                                                    ciphertexts[i].len - MONGOCRYPT_IV_LEN - MONGOCRYPT_HMAC_LEN));
+        }
+
+        ASSERT_CMPUINT32(tf->counts.aes_256_cbc_decrypt_array, ==, 0);
+        bool ok = _decrypt_step_array(crypt->crypto, MODE_CBC, ivs, enc_keys, S, decrypted, bytes_writtens, 2, status);
+        ASSERT_OK_STATUS(ok, status);
+        ASSERT_CMPUINT32(tf->counts.aes_256_cbc_decrypt_array, ==, 1);
+        // Set buffer length.
+        for (size_t i = 0; i < 2; i++) {
+            decrypted[i].len = bytes_writtens[i];
+        }
+    }
+
+    ASSERT_CMPBUF(plaintexts[0], decrypted[0]);
+    ASSERT_CMPBUF(plaintexts[1], decrypted[1]);
+
+    for (size_t i = 0; i < 2; i++) {
+        _mongocrypt_buffer_cleanup(&decrypted[i]);
+        _mongocrypt_buffer_cleanup(&ciphertexts[i]);
+        _mongocrypt_buffer_cleanup(&ivs[i]);
+        _mongocrypt_buffer_cleanup(&associated_datas[i]);
+        _mongocrypt_buffer_cleanup(&keys[i]);
+        _mongocrypt_buffer_cleanup(&plaintexts[i]);
+    }
+    mongocrypt_destroy(crypt);
+    mongocrypt_status_destroy(status);
+    testfixture_destroy(tf);
+}
+
 // TODO: consider deleting ... end
 
 void _mongocrypt_tester_install_array_hooks(_mongocrypt_tester_t *tester) {
@@ -438,4 +669,6 @@ void _mongocrypt_tester_install_array_hooks(_mongocrypt_tester_t *tester) {
     INSTALL_TEST(test_decrypt_with_array);
     INSTALL_TEST(test_hmac_step_array);
     INSTALL_TEST(test_hmac_step_array_with_hooks);
+    INSTALL_TEST(test_decrypt_step_array);
+    INSTALL_TEST(test_decrypt_step_array_with_hooks);
 }
