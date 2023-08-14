@@ -603,14 +603,14 @@ static bool _encrypt_step(_mongocrypt_crypto_t *crypto,
  *
  * ----------------------------------------------------------------------------
  */
-static bool _hmac_step(_mongocrypt_crypto_t *crypto,
-                       _mongocrypt_mac_format_t mac_format,
-                       _mongocrypt_hmac_type_t hmac,
-                       const _mongocrypt_buffer_t *Km,
-                       const _mongocrypt_buffer_t *AAD,
-                       const _mongocrypt_buffer_t *iv_and_ciphertext,
-                       _mongocrypt_buffer_t *out,
-                       mongocrypt_status_t *status) {
+bool _hmac_step(_mongocrypt_crypto_t *crypto,
+                _mongocrypt_mac_format_t mac_format,
+                _mongocrypt_hmac_type_t hmac,
+                const _mongocrypt_buffer_t *Km,
+                const _mongocrypt_buffer_t *AAD,
+                const _mongocrypt_buffer_t *iv_and_ciphertext,
+                _mongocrypt_buffer_t *out,
+                mongocrypt_status_t *status) {
     _mongocrypt_buffer_t to_hmac = {0};
     bool ret = false;
 
