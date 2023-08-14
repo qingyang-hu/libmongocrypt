@@ -778,13 +778,13 @@ bool _hmac_step_array(_mongocrypt_crypto_t *crypto,
         }
     }
 
-    // Call the array form of the HMAC hook.
     if (hmac == HMAC_SHA_512_256) {
         tags = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_entries);
         for (uint32_t i = 0; i < num_entries; i++) {
             _mongocrypt_buffer_init_size(&tags[i], MONGOCRYPT_HMAC_SHA512_LEN);
         }
 
+        // Call the array form of the HMAC hook.
         if (crypto->hmac_sha_512_array) {
             // Create `mongocrypt_binary_t**` forms of arguments.
             mongocrypt_binary_t *key_bins = bson_malloc0(sizeof(mongocrypt_binary_t) * num_entries);
