@@ -216,6 +216,10 @@ static void test_decrypt_with_array(_mongocrypt_tester_t *tester) {
                                             2,
                                             status);
         ASSERT_OK_STATUS(ok, status);
+        // Set buffer length.
+        for (size_t i = 0; i < 2; i++) {
+            decrypted[i].len = bytes_written[i];
+        }
     }
 
     ASSERT_CMPBUF(plaintexts[0], decrypted[0]);

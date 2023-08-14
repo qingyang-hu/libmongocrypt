@@ -1389,8 +1389,163 @@ static bool _mongocrypt_do_decryption_array(_mongocrypt_crypto_t *crypto,
                                             uint32_t *bytes_writtens,
                                             uint32_t num_entries,
                                             mongocrypt_status_t *status) {
-    CLIENT_ERR("Not yet implemented");
-    return false;
+    BSON_ASSERT_PARAM(crypto);
+    BSON_ASSERT(associated_datas || NULL); // associated_datas may be NULL.
+    BSON_ASSERT_PARAM(keys);
+    BSON_ASSERT_PARAM(ciphertexts);
+    BSON_ASSERT_PARAM(plaintexts);
+    BSON_ASSERT_PARAM(bytes_writtens);
+    BSON_ASSERT(num_entries > 0);
+
+    bool ok = false;
+
+    // `Kes` is an array of encryption keys.
+    _mongocrypt_buffer_t *Kes = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_entries);
+    _mongocrypt_buffer_t *IVs = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_entries);
+    // `Kms` is an array of MAC keys.
+    _mongocrypt_buffer_t *Kms = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_entries);
+    _mongocrypt_buffer_t *hmac_tags = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_entries);
+    for (uint32_t i = 0; i < num_entries; i++) {
+        _mongocrypt_buffer_init_size(&hmac_tags[i], MONGOCRYPT_HMAC_LEN);
+    }
+    _mongocrypt_buffer_t *iv_and_ciphertexts = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_entries);
+    // `Ss` is an array of ciphertexts without IV or HMAC.
+    _mongocrypt_buffer_t *Ss = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_entries);
+
+    // Check arguments. Create array inputs.
+    for (uint32_t i = 0; i < num_entries; i++) {
+        const _mongocrypt_buffer_t *ciphertext = &ciphertexts[i];
+        _mongocrypt_buffer_t *plaintext = &plaintexts[i];
+        const _mongocrypt_buffer_t *key = &keys[i];
+
+        const uint32_t expect_plaintext_len = _mongocrypt_calculate_plaintext_len(ciphertext->len, mode, hmac, status);
+        if (mongocrypt_status_type(status) != MONGOCRYPT_STATUS_OK) {
+            goto done;
+        }
+        if (plaintext->len != expect_plaintext_len) {
+            CLIENT_ERR("output plaintext should have been allocated with %d bytes, "
+                       "but has: %d",
+                       expect_plaintext_len,
+                       plaintext->len);
+            goto done;
+        }
+
+        if (expect_plaintext_len == 0) {
+            // While a ciphertext string describing a zero length plaintext is
+            // technically valid,
+            // it's not actually particularly useful in the context of FLE where such
+            // values aren't encoded.
+            CLIENT_ERR("input ciphertext too small. Must be more than %" PRIu32 " bytes",
+                       _mongocrypt_calculate_ciphertext_len(0, mode, hmac, NULL));
+            goto done;
+        }
+
+        const uint32_t expected_key_len = (key_format == KEY_FORMAT_FLE2) ? MONGOCRYPT_ENC_KEY_LEN : MONGOCRYPT_KEY_LEN;
+        if (expected_key_len != key->len) {
+            CLIENT_ERR("key should have length %d, but has length %d", expected_key_len, key->len);
+            goto done;
+        }
+
+        const uint32_t min_cipherlen = _mongocrypt_calculate_ciphertext_len(0, mode, hmac, NULL);
+        if (ciphertext->len < min_cipherlen) {
+            CLIENT_ERR("corrupt ciphertext - must be >= %d bytes", min_cipherlen);
+            goto done;
+        }
+
+        const uint32_t Ke_offset = (key_format == KEY_FORMAT_FLE1) ? MONGOCRYPT_MAC_KEY_LEN : 0;
+        if (!_mongocrypt_buffer_from_subrange(&Kes[i], key, Ke_offset, MONGOCRYPT_ENC_KEY_LEN)) {
+            CLIENT_ERR("unable to create Ke subrange from key");
+            goto done;
+        }
+
+        if (!_mongocrypt_buffer_from_subrange(&IVs[i], ciphertext, 0, MONGOCRYPT_IV_LEN)) {
+            CLIENT_ERR("unable to create IV subrange from ciphertext");
+            goto done;
+        }
+
+        if (hmac == HMAC_NONE) {
+            BSON_ASSERT(key_format == KEY_FORMAT_FLE2);
+        } else {
+            BSON_ASSERT(key_format != KEY_FORMAT_FLE2);
+
+            const uint32_t mac_key_offset = (key_format == KEY_FORMAT_FLE1) ? 0 : MONGOCRYPT_ENC_KEY_LEN;
+            if (!_mongocrypt_buffer_from_subrange(&Kms[i], key, mac_key_offset, MONGOCRYPT_MAC_KEY_LEN)) {
+                CLIENT_ERR("unable to create Km subrange from key");
+                goto done;
+            }
+
+            if (!_mongocrypt_buffer_from_subrange(&iv_and_ciphertexts[i],
+                                                  ciphertext,
+                                                  0,
+                                                  ciphertext->len - MONGOCRYPT_HMAC_LEN)) {
+                CLIENT_ERR("unable to create IV || S subrange from C");
+                goto done;
+            }
+        }
+    }
+
+    // Call HMAC.
+    if (hmac != HMAC_NONE) {
+        if (!_hmac_step_array(crypto,
+                              mac_format,
+                              hmac,
+                              Kms,
+                              associated_datas,
+                              iv_and_ciphertexts,
+                              hmac_tags,
+                              num_entries,
+                              status)) {
+            goto done;
+        }
+        // Check tags.
+        for (uint32_t i = 0; i < num_entries; i++) {
+            const _mongocrypt_buffer_t *hmac_tag = &hmac_tags[i];
+            const _mongocrypt_buffer_t *ciphertext = &ciphertexts[i];
+            _mongocrypt_buffer_t T;
+            if (!_mongocrypt_buffer_from_subrange(&T,
+                                                  ciphertext,
+                                                  ciphertext->len - MONGOCRYPT_HMAC_LEN,
+                                                  MONGOCRYPT_HMAC_LEN)) {
+                CLIENT_ERR("unable to create T subrange from C");
+                goto done;
+            }
+            if (0 != _mongocrypt_memequal(hmac_tag->data, T.data, MONGOCRYPT_HMAC_LEN)) {
+                CLIENT_ERR("HMAC validation failure");
+                goto done;
+            }
+        }
+    }
+
+    // Decrypt.
+    for (uint32_t i = 0; i < num_entries; i++) {
+        const uint32_t hmac_len = (hmac == HMAC_NONE) ? 0 : MONGOCRYPT_HMAC_LEN;
+        _mongocrypt_buffer_t *S = &Ss[i];
+        const _mongocrypt_buffer_t *ciphertext = &ciphertexts[i];
+        if (!_mongocrypt_buffer_from_subrange(S,
+                                              ciphertext,
+                                              MONGOCRYPT_IV_LEN,
+                                              ciphertext->len - MONGOCRYPT_IV_LEN - hmac_len)) {
+            CLIENT_ERR("unable to create S subrange from C");
+            goto done;
+        }
+    }
+
+    if (!_decrypt_step_array(crypto, mode, IVs, Kes, Ss, plaintexts, bytes_writtens, num_entries, status)) {
+        goto done;
+    }
+
+    ok = true;
+done:
+    bson_free(Ss);
+    bson_free(iv_and_ciphertexts);
+    for (uint32_t i = 0; i < num_entries; i++) {
+        _mongocrypt_buffer_cleanup(&hmac_tags[i]);
+    }
+    bson_free(hmac_tags);
+    bson_free(Kms);
+    bson_free(IVs);
+    bson_free(Kes);
+    return ok;
 }
 
 #define DECLARE_ALGORITHM(name, mode, hmac)                                                                            \
