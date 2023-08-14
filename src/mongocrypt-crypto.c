@@ -698,6 +698,168 @@ done:
     return ret;
 }
 
+// `_hmac_step_array` is an array variant of `_hmac_step`
+// `Kms`, `AADs`, `iv_and_ciphertexts`, and `outs` are arrays of `num_entries` entries.
+// See `_hmac_step` for a description of the entries.
+bool _hmac_step_array(_mongocrypt_crypto_t *crypto,
+                      _mongocrypt_mac_format_t mac_format,
+                      _mongocrypt_hmac_type_t hmac,
+                      const _mongocrypt_buffer_t *Kms,
+                      const _mongocrypt_buffer_t *AADs,
+                      const _mongocrypt_buffer_t *iv_and_ciphertexts,
+                      _mongocrypt_buffer_t *outs,
+                      uint32_t num_entries,
+                      mongocrypt_status_t *status) {
+    bool ret = false;
+
+    BSON_ASSERT(hmac != HMAC_NONE);
+    BSON_ASSERT_PARAM(crypto);
+    BSON_ASSERT_PARAM(Kms);
+    BSON_ASSERT(AADs || NULL); // AADs may be NULL.
+    BSON_ASSERT_PARAM(iv_and_ciphertexts);
+    BSON_ASSERT_PARAM(outs);
+    BSON_ASSERT(num_entries != 0);
+
+    // `tags` stores the output of HMAC_SHA_512 to be truncated before copying to `outs`.
+    _mongocrypt_buffer_t *tags = NULL;
+
+    // `to_hmacs` is an array of HMAC inputs. Each HMAC input is the concatenation: HMAC(AAD || IV || S || AL)
+    // S is the ciphertext.
+    // AL is the number of bits in AAD expressed as a 64bit unsigned big-endian integer.
+    _mongocrypt_buffer_t *to_hmacs = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_entries);
+    for (uint32_t i = 0; i < num_entries; i++) {
+        _mongocrypt_buffer_init(&to_hmacs[i]);
+    }
+
+    // Construct the array of HMAC inputs.
+    for (uint32_t i = 0; i < num_entries; i++) {
+        const _mongocrypt_buffer_t *AAD = AADs ? &AADs[i] : NULL;
+        const _mongocrypt_buffer_t *iv_and_ciphertext = &iv_and_ciphertexts[i];
+        _mongocrypt_buffer_t *to_hmac = &to_hmacs[i];
+
+        uint32_t num_intermediates = 0;
+        _mongocrypt_buffer_t intermediates[3];
+        if (AAD && !_mongocrypt_buffer_from_subrange(&intermediates[num_intermediates++], AAD, 0, AAD->len)) {
+            CLIENT_ERR("Failed creating MAC subrange on AD");
+            goto done;
+        }
+        if (!_mongocrypt_buffer_from_subrange(&intermediates[num_intermediates++],
+                                              iv_and_ciphertext,
+                                              0,
+                                              iv_and_ciphertext->len)) {
+            CLIENT_ERR("Failed creating MAC subrange on IV and S");
+            goto done;
+        }
+
+        // {AL} must be stored in the function's lexical scope so that
+        // {intermediates}'s reference to it survives until the
+        // _mongocrypt_buffer_concat operation later.
+        uint64_t AL;
+        if (mac_format == MAC_FORMAT_FLE1) {
+            /* T := HMAC(AAD || IV || S || AL)
+             * AL is equal to the number of bits in AAD expressed
+             * as a 64bit unsigned big-endian integer.
+             * Multiplying a uint32_t by 8 won't bring it anywhere close to
+             * UINT64_MAX.
+             */
+            AL = AAD ? BSON_UINT64_TO_BE(8 * (uint64_t)AAD->len) : 0;
+            _mongocrypt_buffer_init(&intermediates[num_intermediates]);
+            intermediates[num_intermediates].data = (uint8_t *)&AL;
+            intermediates[num_intermediates++].len = sizeof(uint64_t);
+
+        } else {
+            /* T := HMAC(AAD || IV || S) */
+            BSON_ASSERT((mac_format == MAC_FORMAT_FLE2AEAD) || (mac_format == MAC_FORMAT_FLE2v2AEAD));
+        }
+
+        if (!_mongocrypt_buffer_concat(to_hmac, intermediates, num_intermediates)) {
+            CLIENT_ERR("failed to allocate buffer");
+            goto done;
+        }
+    }
+
+    // Call the array form of the HMAC hook.
+    if (hmac == HMAC_SHA_512_256) {
+        tags = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_entries);
+        for (uint32_t i = 0; i < num_entries; i++) {
+            _mongocrypt_buffer_init_size(&tags[i], MONGOCRYPT_HMAC_SHA512_LEN);
+        }
+
+        if (crypto->hmac_sha_512_array) {
+            // Create `mongocrypt_binary_t**` forms of arguments.
+            mongocrypt_binary_t *key_bins = bson_malloc0(sizeof(mongocrypt_binary_t) * num_entries);
+            mongocrypt_binary_t *to_hmac_bins = bson_malloc0(sizeof(mongocrypt_binary_t) * num_entries);
+            mongocrypt_binary_t *tag_bins = bson_malloc0(sizeof(mongocrypt_binary_t) * num_entries);
+
+            mongocrypt_binary_t **key_bin_ptrs = bson_malloc0(sizeof(mongocrypt_binary_t *) * num_entries);
+            mongocrypt_binary_t **to_hmac_bin_ptrs = bson_malloc0(sizeof(mongocrypt_binary_t *) * num_entries);
+            mongocrypt_binary_t **tag_bin_ptrs = bson_malloc0(sizeof(mongocrypt_binary_t *) * num_entries);
+
+            for (uint32_t i = 0; i < num_entries; i++) {
+                _mongocrypt_buffer_to_binary(&Kms[i], &key_bins[i]);
+                key_bin_ptrs[i] = &key_bins[i];
+                _mongocrypt_buffer_to_binary(&to_hmacs[i], &to_hmac_bins[i]);
+                to_hmac_bin_ptrs[i] = &to_hmac_bins[i];
+                _mongocrypt_buffer_to_binary(&tags[i], &tag_bins[i]);
+                tag_bin_ptrs[i] = &tag_bins[i];
+            }
+            bool ok = crypto->hmac_sha_512_array(crypto->ctx,
+                                                 key_bin_ptrs,
+                                                 to_hmac_bin_ptrs,
+                                                 tag_bin_ptrs,
+                                                 num_entries,
+                                                 status);
+            bson_free(tag_bin_ptrs);
+            bson_free(to_hmac_bin_ptrs);
+            bson_free(key_bin_ptrs);
+            bson_free(tag_bins);
+            bson_free(to_hmac_bins);
+            bson_free(key_bins);
+
+            if (!ok) {
+                goto done;
+            }
+        } else {
+            // No hook is set. Use native crypto.
+            for (uint32_t i = 0; i < num_entries; i++) {
+                const _mongocrypt_buffer_t *Km = &Kms[i];
+                _mongocrypt_buffer_t *tag = &tags[i];
+                _mongocrypt_buffer_t *to_hmac = &to_hmacs[i];
+
+                if (!_crypto_hmac_sha_512(crypto, Km, to_hmac, tag, status)) {
+                    goto done;
+                }
+            }
+        }
+
+        // Truncate SHA512 to first 256 bits and store in `outs`.
+        for (uint32_t i = 0; i < num_entries; i++) {
+            _mongocrypt_buffer_t *tag = &tags[i];
+            _mongocrypt_buffer_t *out = &outs[i];
+
+            memcpy(out->data, tag->data, MONGOCRYPT_HMAC_LEN);
+        }
+
+    } else {
+        CLIENT_ERR("Array form of HMAC_SHA_256 is not yet implemented");
+        goto done;
+    }
+
+    ret = true;
+done:
+    for (uint32_t i = 0; i < num_entries; i++) {
+        _mongocrypt_buffer_cleanup(&to_hmacs[i]);
+    }
+    bson_free(to_hmacs);
+    if (tags) {
+        for (uint32_t i = 0; i < num_entries; i++) {
+            _mongocrypt_buffer_cleanup(&tags[i]);
+        }
+        bson_free(tags);
+    }
+    return ret;
+}
+
 /* ----------------------------------------------------------------------------
  *
  * _mongocrypt_do_encryption --
