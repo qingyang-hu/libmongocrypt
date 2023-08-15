@@ -404,6 +404,222 @@ static bool _replace_ciphertext_with_plaintext(void *ctx,
     }
 }
 
+// `_collect_ciphertexts_for_array_decryption` stores ciphertexts eligible for the "array" variants of decryption.
+static bool
+_collect_ciphertexts_for_array_decryption(void *ctx, _mongocrypt_buffer_t *in, mongocrypt_status_t *status) {
+    BSON_ASSERT_PARAM(ctx);
+    BSON_ASSERT_PARAM(in);
+    BSON_ASSERT(in->data);
+
+    mc_array_t *fle1_ciphertexts = ctx;
+    switch (in->data[0]) {
+    // Both FLE1 ciphertexts may be decrypted with the same algorithm: `_mcFLE1Algorithm()->do_decrypt_array()`
+    case MC_SUBTYPE_FLE1DeterministicEncryptedValue: // fallthrough.
+    case MC_SUBTYPE_FLE1RandomEncryptedValue: {
+        _mc_array_append_val(fle1_ciphertexts, *in);
+        return true;
+    }
+    default: return true; // At present: only FLE1 ciphertexts support "array" variant of decryption.
+    }
+}
+
+typedef struct {
+    // `idx` is the index of the next ciphertext to replace.
+    // Replacement assumes the order of parsing ciphertexts is repeatable.
+    uint32_t *idx;
+    // `num_ciphertexts` is the total number of ciphertexts.
+    uint32_t num_ciphertexts;
+    _mongocrypt_buffer_t *plaintexts;
+    uint8_t *bson_types;
+} _replace_ciphertexts_for_array_decryption_ctx_t;
+
+static bool _replace_ciphertexts_for_array_decryption(void *ctx_void,
+                                                      _mongocrypt_buffer_t *in,
+                                                      bson_value_t *out,
+                                                      mongocrypt_status_t *status) {
+    BSON_ASSERT_PARAM(ctx_void);
+    BSON_ASSERT_PARAM(in);
+    BSON_ASSERT_PARAM(out);
+    BSON_ASSERT(in->data);
+
+    switch (in->data[0]) {
+    case MC_SUBTYPE_FLE1DeterministicEncryptedValue: // fallthrough.
+    case MC_SUBTYPE_FLE1RandomEncryptedValue: {
+        _replace_ciphertexts_for_array_decryption_ctx_t *ctx = ctx_void;
+        uint32_t idx = *ctx->idx;
+        _mongocrypt_buffer_t *plaintext = &ctx->plaintexts[idx];
+        uint8_t bson_type = ctx->bson_types[idx];
+
+        if (!_mongocrypt_buffer_to_bson_value(plaintext, bson_type, out)) {
+            CLIENT_ERR("failed to write decrypted BSON value");
+            return false;
+        }
+
+        *(ctx->idx) += 1;
+        return true;
+    }
+    default: return true; // At present: only FLE1 ciphertexts support "array" variant of decryption.
+    }
+}
+
+// `_decrypt_with_array_decryption` decrypts payloads eligible for "array" variants of decryption.
+// If decryption succeeds, `as_bson` is overwritten with a new BSON document containing decrypted payloads.
+static bool _decrypt_with_array_decryption(mongocrypt_ctx_t *ctx, bson_t *as_bson /* in / out */) {
+    BSON_ASSERT_PARAM(ctx);
+    BSON_ASSERT_PARAM(as_bson);
+
+    bool ret = false;
+    mongocrypt_status_t *status = ctx->status;
+    _mongocrypt_key_broker_t *kb = &ctx->kb;
+    _mongocrypt_buffer_t *ciphertexts = NULL;
+    _mongocrypt_buffer_t *plaintexts = NULL;
+    _mongocrypt_buffer_t *key_materials = NULL;
+    _mongocrypt_buffer_t *associated_datas = NULL;
+    uint32_t *bytes_writtens = NULL;
+    uint8_t *bson_types = NULL;
+    size_t num_ciphertexts = 0;
+    bson_t as_bson_replaced = BSON_INITIALIZER;
+
+    // `fle1_bson_values` is an array of `_mongocrypt_buffer_t` of BSON binary values containing an FLE1 ciphertext.
+    // The `_mongocrypt_buffer_t` elements are non-owning views.
+    mc_array_t fle1_bson_values;
+    _mc_array_init(&fle1_bson_values, sizeof(_mongocrypt_buffer_t));
+
+    // Collect FLE1 ciphertexts (if any).
+    bson_iter_t iter;
+    bson_iter_init(&iter, as_bson);
+    bool ok = _mongocrypt_traverse_binary_in_bson(_collect_ciphertexts_for_array_decryption,
+                                                  &fle1_bson_values /* ctx */,
+                                                  TRAVERSE_MATCH_CIPHERTEXT,
+                                                  &iter,
+                                                  ctx->status);
+    if (!ok) {
+        goto fail;
+    }
+
+    num_ciphertexts = fle1_bson_values.len;
+
+    if (num_ciphertexts == 0) {
+        // Nothing to do. Return success.
+        ret = true;
+        goto cleanup;
+    }
+
+    // Allocate arrays.
+    ciphertexts = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_ciphertexts);
+    plaintexts = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_ciphertexts);
+    key_materials = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_ciphertexts);
+    associated_datas = bson_malloc0(sizeof(_mongocrypt_buffer_t) * num_ciphertexts);
+    bytes_writtens = bson_malloc0(sizeof(uint32_t) * num_ciphertexts);
+    bson_types = bson_malloc0(sizeof(uint8_t) * num_ciphertexts);
+
+    // Parse ciphertext data into array of buffers.
+    const _mongocrypt_value_encryption_algorithm_t *fle1alg = _mcFLE1Algorithm();
+    for (size_t i = 0; i < num_ciphertexts; i++) {
+        _mongocrypt_buffer_t fle1_bson_value = _mc_array_index(&fle1_bson_values, _mongocrypt_buffer_t, i);
+        _mongocrypt_ciphertext_t fle1_bson_parsed;
+        _mongocrypt_buffer_t *ciphertext = &ciphertexts[i];
+        _mongocrypt_buffer_t *plaintext = &plaintexts[i];
+        _mongocrypt_buffer_t *associated_data = &associated_datas[i];
+        _mongocrypt_buffer_t *key_material = &key_materials[i];
+        uint8_t *bson_type = &bson_types[i];
+
+        CHECK_AND_RETURN(_mongocrypt_ciphertext_parse_unowned(&fle1_bson_value, &fle1_bson_parsed, status));
+        BSON_ASSERT(fle1_bson_parsed.blob_subtype == MC_SUBTYPE_FLE1DeterministicEncryptedValue
+                    || fle1_bson_parsed.blob_subtype == MC_SUBTYPE_FLE1RandomEncryptedValue);
+        *ciphertext = fle1_bson_parsed.data;
+        *bson_type = fle1_bson_parsed.original_bson_type;
+
+        // Allocate necessary size for plaintext.
+        uint32_t plaintext_len = fle1alg->get_plaintext_len(fle1_bson_parsed.data.len, status);
+        CHECK_AND_RETURN(plaintext_len != 0);
+        _mongocrypt_buffer_init_size(plaintext, plaintext_len);
+
+        // Serialized associated data.
+        CHECK_AND_RETURN_STATUS(_mongocrypt_ciphertext_serialize_associated_data(&fle1_bson_parsed, associated_data),
+                                "could not serialize associated data");
+
+        // Store key material.
+        CHECK_AND_RETURN_STATUS(_mongocrypt_key_broker_decrypted_key_by_id(kb, &fle1_bson_parsed.key_id, key_material),
+                                "key not found");
+    }
+
+    // Decrypt the array.
+    {
+        ok = fle1alg->do_decrypt_array(ctx->crypt->crypto,
+                                       associated_datas,
+                                       key_materials,
+                                       ciphertexts,
+                                       plaintexts,
+                                       bytes_writtens,
+                                       num_ciphertexts,
+                                       status);
+        if (!ok) {
+            goto fail;
+        }
+    }
+
+    // Update plaintext lengths.
+    for (size_t i = 0; i < num_ciphertexts; i++) {
+        _mongocrypt_buffer_t *plaintext = &plaintexts[i];
+        uint32_t *bytes_written = &bytes_writtens[i];
+        plaintext->len = *bytes_written;
+    }
+
+    // Replace ciphertexts with decrypted plaintexts.
+    {
+        uint32_t idx = 0;
+        _replace_ciphertexts_for_array_decryption_ctx_t rctx = {.idx = &idx,
+                                                                .plaintexts = plaintexts,
+                                                                .bson_types = bson_types,
+                                                                .num_ciphertexts = num_ciphertexts};
+
+        bson_iter_init(&iter, as_bson);
+        bool ok = _mongocrypt_transform_binary_in_bson(_replace_ciphertexts_for_array_decryption,
+                                                       &rctx,
+                                                       TRAVERSE_MATCH_CIPHERTEXT,
+                                                       &iter,
+                                                       &as_bson_replaced,
+                                                       ctx->status);
+        if (!ok) {
+            goto fail;
+        }
+
+        // Expect all ciphertexts to have replaced.
+        BSON_ASSERT(num_ciphertexts < UINT32_MAX);
+        BSON_ASSERT(idx == (uint32_t)num_ciphertexts);
+
+        // Swap the decrypted BSON with the input.
+        bson_destroy(as_bson);
+        bson_steal(as_bson, &as_bson_replaced);
+        bson_init(&as_bson_replaced);
+    }
+
+    ret = true;
+fail:
+    if (!ret) {
+        // Mark context as failed. `ctx->status` is expected to already be set.
+        _mongocrypt_ctx_fail(ctx);
+    }
+cleanup:
+    bson_free(bson_types);
+    bson_free(bytes_writtens);
+    // If ciphertexts were matched, clean up allocated buffers.
+    for (size_t i = 0; i < num_ciphertexts; i++) {
+        _mongocrypt_buffer_cleanup(&associated_datas[i]);
+        _mongocrypt_buffer_cleanup(&key_materials[i]);
+        _mongocrypt_buffer_cleanup(&plaintexts[i]);
+        _mongocrypt_buffer_cleanup(&ciphertexts[i]);
+    }
+    bson_free(associated_datas);
+    bson_free(key_materials);
+    bson_free(plaintexts);
+    bson_free(ciphertexts);
+    _mc_array_destroy(&fle1_bson_values);
+    bson_destroy(&as_bson_replaced);
+    return ret;
+}
+
 static bool _finalize(mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out) {
     bson_t as_bson, final_bson;
     bson_iter_t iter;
@@ -430,6 +646,11 @@ static bool _finalize(mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out) {
         return _mongocrypt_ctx_fail_w_msg(ctx, "malformed bson");
     }
 
+    if (!_decrypt_with_array_decryption(ctx, &as_bson)) {
+        bson_destroy(&as_bson);
+        return false;
+    }
+
     bson_iter_init(&iter, &as_bson);
     bson_init(&final_bson);
     res = _mongocrypt_transform_binary_in_bson(_replace_ciphertext_with_plaintext,
@@ -440,6 +661,7 @@ static bool _finalize(mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out) {
                                                ctx->status);
     if (!res) {
         bson_destroy(&final_bson);
+        bson_destroy(&as_bson);
         return _mongocrypt_ctx_fail(ctx);
     }
 
@@ -447,6 +669,7 @@ static bool _finalize(mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out) {
     out->data = dctx->decrypted_doc.data;
     out->len = dctx->decrypted_doc.len;
     ctx->state = MONGOCRYPT_CTX_DONE;
+    bson_destroy(&as_bson);
     return true;
 }
 

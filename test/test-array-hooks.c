@@ -21,6 +21,7 @@ typedef struct {
     struct {
         uint32_t hmac_sha512_array;
         uint32_t aes_256_cbc_decrypt_array;
+        uint32_t aes_256_cbc_decrypt;
     } counts;
 } testfixture_t;
 
@@ -64,6 +65,18 @@ static bool testhook_aes_256_cbc_decrypt_array(void *ctx,
     return true;
 }
 
+static bool testhook_native_crypto_aes_256_cbc_decrypt(void *ctx,
+                                                       mongocrypt_binary_t *key,
+                                                       mongocrypt_binary_t *iv,
+                                                       mongocrypt_binary_t *in,
+                                                       mongocrypt_binary_t *out,
+                                                       uint32_t *bytes_written,
+                                                       mongocrypt_status_t *status) {
+    testfixture_t *tf = ctx;
+    tf->counts.aes_256_cbc_decrypt++;
+    return _std_hook_native_crypto_aes_256_cbc_decrypt(ctx, key, iv, in, out, bytes_written, status);
+}
+
 static bool testhook_hmac_sha512_array(void *ctx,
                                        mongocrypt_binary_t **key,
                                        mongocrypt_binary_t **in,
@@ -104,6 +117,16 @@ static void test_decrypt_with_array_hooks(_mongocrypt_tester_t *tester) {
         mongocrypt_binary_t *kms_providers = TEST_BSON("{ 'local' : { 'key' : '%s' } }", local_kek_base64);
         ASSERT_OK(mongocrypt_setopt_kms_providers(crypt, kms_providers), crypt);
         ASSERT_OK(mongocrypt_setopt_crypto_context(crypt, tf), crypt);
+        // Set hook for non-array decrypt.
+        ASSERT_OK(mongocrypt_setopt_crypto_hooks(crypt,
+                                                 _std_hook_native_crypto_aes_256_cbc_encrypt,
+                                                 testhook_native_crypto_aes_256_cbc_decrypt,
+                                                 _std_hook_native_crypto_random,
+                                                 _std_hook_native_hmac_sha512,
+                                                 _std_hook_native_hmac_sha256,
+                                                 _error_hook_native_sha256,
+                                                 tf /* ctx */),
+                  crypt);
         ASSERT_OK(mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array(crypt, testhook_aes_256_cbc_decrypt_array),
                   crypt);
         ASSERT_OK(mongocrypt_setopt_crypto_hook_hmac_sha_512_array(crypt, testhook_hmac_sha512_array), crypt);
@@ -119,7 +142,10 @@ static void test_decrypt_with_array_hooks(_mongocrypt_tester_t *tester) {
         // Needs DEK to decrypt.
         ASSERT_STATE_EQUAL(mongocrypt_ctx_state(ctx), MONGOCRYPT_CTX_NEED_MONGO_KEYS);
         {
+            // Expect decrypting key results in one call to the non-array decrypt hook.
+            ASSERT_CMPUINT32(tf->counts.aes_256_cbc_decrypt, ==, 0);
             ASSERT_OK(mongocrypt_ctx_mongo_feed(ctx, TEST_FILE("./test/data/key-document-local.json")), ctx);
+            ASSERT_CMPUINT32(tf->counts.aes_256_cbc_decrypt, ==, 1);
             ASSERT_OK(mongocrypt_ctx_mongo_done(ctx), ctx);
         }
 
@@ -131,9 +157,11 @@ static void test_decrypt_with_array_hooks(_mongocrypt_tester_t *tester) {
             mongocrypt_binary_destroy(out);
         }
 
-        // Expect decrypting both payloads only resulted in one call to the array callbacks.
+        // Expect decrypting both payloads only resulted in one call to the array hooks.
         ASSERT_CMPUINT32(tf->counts.aes_256_cbc_decrypt_array, ==, 1);
         ASSERT_CMPUINT32(tf->counts.hmac_sha512_array, ==, 1);
+        // Expect no additional calls to the non-array callback.
+        ASSERT_CMPUINT32(tf->counts.aes_256_cbc_decrypt, ==, 1);
 
         mongocrypt_ctx_destroy(ctx);
     }
