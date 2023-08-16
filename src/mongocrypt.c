@@ -841,8 +841,35 @@ static bool _try_enable_csfle(mongocrypt_t *crypt) {
     return mongocrypt_status_type(status) == MONGOCRYPT_STATUS_OK;
 }
 
+static bool should_ignore_callbacks(void) {
+    if (0 == strcmp(getenv("IGNORE_CALLBACKS"), "ON")) {
+        return true;
+    }
+    return false;
+}
+
+static bool should_ignore_array_callbacks(void) {
+    if (should_ignore_callbacks() || 0 == strcmp(getenv("IGNORE_ARRAY_CALLBACKS"), "ON")) {
+        return true;
+    }
+    return false;
+}
+
 bool mongocrypt_init(mongocrypt_t *crypt) {
     BSON_ASSERT_PARAM(crypt);
+
+    if (should_ignore_callbacks()) {
+        printf("detected `IGNORE_CALLBACKS=ON`\n");
+        printf("libmongocrypt will not use array callbacks\n");
+    } else if (should_ignore_array_callbacks()) {
+        printf("detected `IGNORE_ARRAY_CALLBACKS=ON`\n");
+        printf("libmongocrypt will not use array callbacks\n");
+    } else {
+        printf("Default callback settings are enabled.\n");
+        printf("Array callbacks will be used if set.\n");
+        printf("Otherwise, non-array callbacks will be used if set.\n");
+        printf("Otherwise, native crypto will be used if libmongocrypt was built with native crypto support.\n");
+    }
 
     mongocrypt_status_t *status = crypt->status;
     if (crypt->initialized) {
@@ -974,6 +1001,10 @@ bool mongocrypt_setopt_crypto_hooks(mongocrypt_t *crypt,
                                     void *ctx) {
     ASSERT_MONGOCRYPT_PARAM_UNINIT(crypt);
 
+    if (should_ignore_callbacks()) {
+        return true;
+    }
+
     mongocrypt_status_t *status = crypt->status;
 
     if (!crypt->crypto) {
@@ -1028,6 +1059,10 @@ bool mongocrypt_setopt_crypto_hook_sign_rsaes_pkcs1_v1_5(mongocrypt_t *crypt,
                                                          void *sign_ctx) {
     ASSERT_MONGOCRYPT_PARAM_UNINIT(crypt);
 
+    if (should_ignore_callbacks()) {
+        return true;
+    }
+
     if (crypt->opts.sign_rsaes_pkcs1_v1_5) {
         mongocrypt_status_t *status = crypt->status;
         CLIENT_ERR("signature hook already set");
@@ -1044,6 +1079,10 @@ bool mongocrypt_setopt_aes_256_ctr(mongocrypt_t *crypt,
                                    mongocrypt_crypto_fn aes_256_ctr_decrypt,
                                    void *ctx) {
     ASSERT_MONGOCRYPT_PARAM_UNINIT(crypt);
+
+    if (should_ignore_callbacks()) {
+        return true;
+    }
 
     mongocrypt_status_t *status = crypt->status;
 
@@ -1070,6 +1109,10 @@ bool mongocrypt_setopt_aes_256_ctr(mongocrypt_t *crypt,
 
 bool mongocrypt_setopt_aes_256_ecb(mongocrypt_t *crypt, mongocrypt_crypto_fn aes_256_ecb_encrypt, void *ctx) {
     ASSERT_MONGOCRYPT_PARAM_UNINIT(crypt);
+
+    if (should_ignore_callbacks()) {
+        return true;
+    }
 
     if (!crypt->crypto) {
         crypt->crypto = bson_malloc0(sizeof(*crypt->crypto));
@@ -1377,6 +1420,9 @@ void mongocrypt_setopt_bypass_query_analysis(mongocrypt_t *crypt) {
 }
 
 bool mongocrypt_setopt_crypto_hook_random_array(mongocrypt_t *crypt, mongocrypt_random_array_fn random_array) {
+    if (should_ignore_array_callbacks()) {
+        return true;
+    }
     BSON_ASSERT_PARAM(crypt);
     if (!crypt->crypto) {
         crypt->crypto = bson_malloc0(sizeof(*crypt->crypto));
@@ -1387,6 +1433,10 @@ bool mongocrypt_setopt_crypto_hook_random_array(mongocrypt_t *crypt, mongocrypt_
 }
 
 bool mongocrypt_setopt_crypto_context(mongocrypt_t *crypt, void *ctx) {
+    if (should_ignore_callbacks()) {
+        return true;
+    }
+
     BSON_ASSERT_PARAM(crypt);
     if (!crypt->crypto) {
         crypt->crypto = bson_malloc0(sizeof(*crypt->crypto));
@@ -1397,6 +1447,9 @@ bool mongocrypt_setopt_crypto_context(mongocrypt_t *crypt, void *ctx) {
 }
 
 bool mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array(mongocrypt_t *crypt, mongocrypt_crypto_array_fn hook) {
+    if (should_ignore_array_callbacks()) {
+        return true;
+    }
     BSON_ASSERT_PARAM(crypt);
     if (!crypt->crypto) {
         crypt->crypto = bson_malloc0(sizeof(*crypt->crypto));
@@ -1407,6 +1460,9 @@ bool mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array(mongocrypt_t *crypt
 }
 
 bool mongocrypt_setopt_crypto_hook_hmac_sha_512_array(mongocrypt_t *crypt, mongocrypt_hmac_array_fn hook) {
+    if (should_ignore_array_callbacks()) {
+        return true;
+    }
     BSON_ASSERT_PARAM(crypt);
     if (!crypt->crypto) {
         crypt->crypto = bson_malloc0(sizeof(*crypt->crypto));
