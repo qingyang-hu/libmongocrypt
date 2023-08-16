@@ -842,14 +842,19 @@ static bool _try_enable_csfle(mongocrypt_t *crypt) {
 }
 
 static bool should_ignore_callbacks(void) {
-    if (0 == strcmp(getenv("IGNORE_CALLBACKS"), "ON")) {
+    char *val = getenv("IGNORE_CALLBACKS");
+    if (val && 0 == strcmp(val, "ON")) {
         return true;
     }
     return false;
 }
 
 static bool should_ignore_array_callbacks(void) {
-    if (should_ignore_callbacks() || 0 == strcmp(getenv("IGNORE_ARRAY_CALLBACKS"), "ON")) {
+    if (should_ignore_callbacks()) {
+        return true;
+    }
+    char *val = getenv("IGNORE_ARRAY_CALLBACKS");
+    if (val && 0 == strcmp(val, "ON")) {
         return true;
     }
     return false;
