@@ -32,7 +32,6 @@ buildscript {
 plugins {
     `java-library`
     `maven-publish`
-    signing
     id("de.undercouch.download") version "5.0.5"
     id("biz.aQute.bnd.builder") version "6.2.0"
 }
@@ -43,7 +42,7 @@ repositories {
 }
 
 group = "org.mongodb"
-version = "1.8.0-SNAPSHOT"
+version = "1.8.0-D2581"
 description = "MongoDB client-side crypto support"
 
 java {
@@ -253,9 +252,6 @@ publishing {
     }
 }
 
-signing {
-    sign(publishing.publications["mavenJava"])
-}
 
 tasks.javadoc {
     if (JavaVersion.current().isJava9Compatible) {
@@ -318,22 +314,3 @@ tasks.register("publishToSonatype") {
 }
 
 
-/*
-For security we allow the signing-related project properties to be passed in as environment variables, which
-Gradle enables if they are prefixed with "ORG_GRADLE_PROJECT_".  But since environment variables can not contain
-the '.' character and the signing-related properties contain '.', here we map signing-related project properties with '_'
-to ones with '.' that are expected by the signing plugin.
-*/
-gradle.taskGraph.whenReady {
-    if (allTasks.any { it is Sign }) {
-        val signing_keyId: String? by project
-        val signing_secretKeyRingFile: String? by project
-        val signing_password: String? by project
-
-        allprojects {
-            signing_keyId?.let { extra["signing.keyId"] = it }
-            signing_secretKeyRingFile?.let { extra["signing.secretKeyRingFile"] = it }
-            signing_password?.let { extra["signing.password"] = it }
-        }
-    }
-}
