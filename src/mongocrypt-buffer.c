@@ -64,7 +64,7 @@ void _mongocrypt_buffer_resize(_mongocrypt_buffer_t *buf, uint32_t len) {
         return;
     }
 
-    buf->data = bson_malloc(len);
+    buf->data = bson_malloc0(len);
     BSON_ASSERT(buf->data);
 
     buf->len = len;
