@@ -288,6 +288,16 @@ public class CAPI {
         boolean random(Pointer ctx, Pointer out, Pointer count, int num_entries, mongocrypt_status_t status);
     }
 
+    public interface mongocrypt_crypto_array_fn extends Callback {
+        boolean crypt(Pointer ctx, Pointer keys, Pointer ivs, Pointer ins,
+                      Pointer outs, Pointer bytesWritten, int num_entries, mongocrypt_status_t status);
+    }
+
+    public interface mongocrypt_hmac_array_fn extends Callback {
+        boolean hmac(Pointer ctx, Pointer keys, Pointer ins, Pointer outs, int num_entries,
+                     mongocrypt_status_t status);
+    }
+
     /**
      * Allocate a new @ref mongocrypt_t object.
      * <p>
@@ -330,6 +340,24 @@ public class CAPI {
      */
     public static native
     void mongocrypt_test_random_array(mongocrypt_t crypt);
+
+    /**
+     * Set an array variant of `aes_256_cbc_decrypt` hook.
+     * @param crypt The @ref mongocrypt_t object.
+     * @param hook The callback.
+     * @return a boolean indicating success.
+     */
+    public static native
+    boolean mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array(mongocrypt_t crypt, mongocrypt_crypto_array_fn hook);
+
+    /**
+     * Set an array variant of `hmac_sha_512` hook.
+     * @param crypt The @ref mongocrypt_t object.
+     * @param hook The callback.
+     * @return a boolean indicating success.
+     */
+    public static native
+    boolean mongocrypt_setopt_crypto_hook_hmac_sha_512_array(mongocrypt_t crypt, mongocrypt_hmac_array_fn hook);
 
     public static native boolean
     mongocrypt_setopt_crypto_hooks(mongocrypt_t crypt,
