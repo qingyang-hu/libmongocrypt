@@ -976,10 +976,6 @@ bool mongocrypt_setopt_crypto_hooks(mongocrypt_t *crypt,
 
     mongocrypt_status_t *status = crypt->status;
 
-    // Ignore crypto hooks.
-    printf("WARNING: ignoring crypto hooks for testing: v2\n");
-    return true;
-
     if (!crypt->crypto) {
         crypt->crypto = bson_malloc0(sizeof(*crypt->crypto));
         BSON_ASSERT(crypt->crypto);
