@@ -57,12 +57,12 @@ public class MongoCryptTest {
 
         @Override
         public boolean random(Pointer ctx, Pointer out, Pointer count, int num_entries, mongocrypt_status_t status) {
-            final int sizeof_int32 = 4;
             final int sizeof_pointer = Native.POINTER_SIZE;
             assertEquals(num_entries, 2);
             // Q: Why is it not an error to construct a `mongocrypt_binary_t`?
             // https://java-native-access.github.io/jna/5.11.0/javadoc/com/sun/jna/PointerType.html documents default constructor as protected.
-            // A:
+            // A: PointerType's constructor is `protected`, not `mongocrypt_binary_t`.
+
             {
                 Pointer ptr_to_bin = out.getPointer(0 * sizeof_pointer);
                 mongocrypt_binary_t bin = new mongocrypt_binary_t();
