@@ -39,6 +39,8 @@ public class MongoCryptOptions {
     private final boolean bypassQueryAnalysis;
     private final List<String> searchPaths;
 
+    private final boolean withFailureDecryptArrayCallbackForTesting;
+
 
     /**
      * Construct a builder for the options
@@ -135,6 +137,11 @@ public class MongoCryptOptions {
     }
 
     /**
+     * Returns true if testing with an error callback for `mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array`.
+     */
+    public boolean withFailureDecryptArrayCallbackForTesting() { return withFailureDecryptArrayCallbackForTesting; }
+
+    /**
      * The builder for the options
      */
     public static class Builder {
@@ -147,6 +154,8 @@ public class MongoCryptOptions {
         private boolean bypassQueryAnalysis;
         private BsonDocument extraOptions = new BsonDocument();
         private List<String> searchPaths = emptyList();
+
+        private boolean withFailureDecryptArrayCallbackForTesting = false;
 
         private Builder() {
         }
@@ -258,6 +267,15 @@ public class MongoCryptOptions {
         }
 
         /**
+         * Sets a failure callback for `mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array` for testing.
+         * @return this
+         */
+        public Builder withFailureDecryptArrayCallbackForTesting () {
+            this.withFailureDecryptArrayCallbackForTesting = true;
+            return this;
+        }
+
+        /**
          * Build the options.
          *
          * @return the options
@@ -280,5 +298,6 @@ public class MongoCryptOptions {
         this.bypassQueryAnalysis = builder.bypassQueryAnalysis;
         this.extraOptions = builder.extraOptions;
         this.searchPaths = builder.searchPaths;
+        this.withFailureDecryptArrayCallbackForTesting = builder.withFailureDecryptArrayCallbackForTesting;
     }
 }

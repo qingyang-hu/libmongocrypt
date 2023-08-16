@@ -22,61 +22,137 @@ import com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_t;
 import com.mongodb.crypt.capi.CAPI.mongocrypt_log_fn_t;
 import com.mongodb.crypt.capi.CAPI.mongocrypt_status_t;
 import com.mongodb.crypt.capi.CAPI.mongocrypt_t;
+import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import org.bson.BsonBinary;
 import org.bson.BsonDocument;
 import org.bson.BsonString;
 
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
-import static com.mongodb.crypt.capi.CAPI.MONGOCRYPT_LOG_LEVEL_ERROR;
-import static com.mongodb.crypt.capi.CAPI.MONGOCRYPT_LOG_LEVEL_FATAL;
-import static com.mongodb.crypt.capi.CAPI.MONGOCRYPT_LOG_LEVEL_INFO;
-import static com.mongodb.crypt.capi.CAPI.MONGOCRYPT_LOG_LEVEL_TRACE;
-import static com.mongodb.crypt.capi.CAPI.MONGOCRYPT_LOG_LEVEL_WARNING;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_crypt_shared_lib_version_string;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_datakey_init;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_decrypt_init;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_encrypt_init;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_explicit_decrypt_init;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_explicit_encrypt_expression_init;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_explicit_encrypt_init;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_new;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_rewrap_many_datakey_init;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_setopt_algorithm;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_setopt_algorithm_range;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_setopt_contention_factor;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_setopt_key_alt_name;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_setopt_key_encryption_key;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_setopt_key_id;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_setopt_key_material;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_setopt_query_type;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_destroy;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_init;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_new;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_aes_256_ctr;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_append_crypt_shared_lib_search_path;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_bypass_query_analysis;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_crypto_hook_sign_rsaes_pkcs1_v1_5;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_crypto_hooks;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_encrypted_field_config_map;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_kms_provider_aws;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_kms_provider_local;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_kms_providers;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_log_handler;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_schema_map;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_set_crypt_shared_lib_path_override;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_setopt_use_need_kms_credentials_state;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_status;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_status_destroy;
-import static com.mongodb.crypt.capi.CAPI.mongocrypt_status_new;
-import static com.mongodb.crypt.capi.CAPIHelper.toBinary;
+import static com.mongodb.crypt.capi.CAPI.*;
+import static com.mongodb.crypt.capi.CAPI.MONGOCRYPT_STATUS_ERROR_CLIENT;
+import static com.mongodb.crypt.capi.CAPIHelper.*;
 import static org.bson.assertions.Assertions.isTrue;
 import static org.bson.assertions.Assertions.notNull;
+
+class ErrorCipherArrayCallback implements CAPI.mongocrypt_crypto_array_fn {
+    @Override
+    public boolean crypt(Pointer ctx, Pointer keys, Pointer ivs, Pointer ins, Pointer outs, Pointer bytesWritten, int num_entries, mongocrypt_status_t status) {
+        mongocrypt_status_set(status, MONGOCRYPT_STATUS_ERROR_CLIENT, 0, new cstring("ErrorCipherArrayCallback is called"), -1);
+        return false;
+    }
+};
+
+class ErrorHMACArrayCallback implements CAPI.mongocrypt_hmac_array_fn {
+    @Override
+    public boolean hmac(Pointer ctx, Pointer keys, Pointer ins, Pointer outs, int num_entries, mongocrypt_status_t status) {
+        mongocrypt_status_set(status, MONGOCRYPT_STATUS_ERROR_CLIENT, 0, new cstring("ErrorHMACArrayCallback is called"), -1);
+        return false;
+    }
+};
+
+class MacArrayCallback implements CAPI.mongocrypt_hmac_array_fn {
+    private final String algorithm;
+
+    MacArrayCallback(final String algorithm) {
+        this.algorithm = algorithm;
+    }
+
+    @Override
+    public boolean hmac(Pointer ctx, Pointer keys, Pointer ins, Pointer outs, int num_entries, mongocrypt_status_t status) {
+
+        for (int i = 0; i < num_entries; i++) {
+            final int sizeof_pointer = Native.POINTER_SIZE;
+
+            mongocrypt_binary_t key = mongocrypt_binary_new();
+            key.setPointer(keys.getPointer(i * sizeof_pointer));
+
+            mongocrypt_binary_t in = mongocrypt_binary_new();
+            in.setPointer(ins.getPointer(i * sizeof_pointer));
+
+            mongocrypt_binary_t out = mongocrypt_binary_new();
+            out.setPointer(outs.getPointer(i * sizeof_pointer));
+
+            try {
+                Mac mac = Mac.getInstance(algorithm);
+                SecretKeySpec keySpec = new SecretKeySpec(toByteArray(key), algorithm);
+                mac.init(keySpec);
+
+                mac.update(toByteArray(in));
+
+                byte[] result = mac.doFinal();
+                writeByteArrayToBinary(out, result);
+
+            } catch (Exception e) {
+                mongocrypt_status_set(status, MONGOCRYPT_STATUS_ERROR_CLIENT, 0, new cstring(e.toString()), -1);
+                return false;
+            }
+
+        }
+
+        return true;
+    }
+};
+
+
+class CipherArrayCallback implements CAPI.mongocrypt_crypto_array_fn {
+    private final String algorithm;
+    private final String transformation;
+    private final int mode;
+
+    CipherArrayCallback(final String algorithm, final String transformation, final int mode) {
+        this.algorithm = algorithm;
+        this.transformation = transformation;
+        this.mode = mode;
+    }
+    @Override
+    public boolean crypt(Pointer ctx, Pointer keys, Pointer ivs, Pointer ins, Pointer outs, Pointer bytesWrittens, int num_entries, mongocrypt_status_t status) {
+
+        for (int i = 0; i < num_entries; i++) {
+            final int sizeof_pointer = Native.POINTER_SIZE;
+
+            mongocrypt_binary_t key = mongocrypt_binary_new();
+            key.setPointer(keys.getPointer(i * sizeof_pointer));
+
+            mongocrypt_binary_t iv = mongocrypt_binary_new();
+            iv.setPointer(ivs.getPointer(i * sizeof_pointer));
+
+            mongocrypt_binary_t in = mongocrypt_binary_new();
+            in.setPointer(ins.getPointer(i * sizeof_pointer));
+
+            mongocrypt_binary_t out = mongocrypt_binary_new();
+            out.setPointer(outs.getPointer(i * sizeof_pointer));
+
+            Pointer bytesWritten = bytesWrittens.getPointer(i * sizeof_pointer);
+
+            // Decrypt entry.
+            try {
+                IvParameterSpec ivParameterSpec = new IvParameterSpec(toByteArray(iv));
+                SecretKeySpec secretKeySpec = new SecretKeySpec(toByteArray(key), algorithm);
+                Cipher cipher = Cipher.getInstance(transformation);
+                cipher.init(mode, secretKeySpec, ivParameterSpec);
+
+                byte[] result = cipher.doFinal(toByteArray(in));
+                writeByteArrayToBinary(out, result);
+                bytesWritten.setInt(0, result.length);
+
+            } catch (Exception e) {
+                mongocrypt_status_set(status, MONGOCRYPT_STATUS_ERROR_CLIENT, 0, new cstring(e.toString()), -1);
+                return false;
+            }
+        }
+
+        return true;
+    }
+};
 
 class MongoCryptImpl implements MongoCrypt {
     private static final Logger LOGGER = Loggers.getLogger();
@@ -104,6 +180,10 @@ class MongoCryptImpl implements MongoCrypt {
     private final SecureRandomCallback secureRandomCallback;
     @SuppressWarnings("FieldCanBeLocal")
     private final SigningRSAESPKCSCallback signingRSAESPKCSCallback;
+    private final ErrorCipherArrayCallback errorCipherArrayCallback;
+    private final CipherArrayCallback aesCBC256DecryptArrayCallback;
+    private final ErrorHMACArrayCallback errorHMACArrayCallback;
+    private final MacArrayCallback hmacSha512ArrayCallback;
 
     private final AtomicBoolean closed;
 
@@ -129,6 +209,21 @@ class MongoCryptImpl implements MongoCrypt {
         hmacSha256Callback = new MacCallback("HmacSHA256");
         sha256Callback = new MessageDigestCallback("SHA-256");
         secureRandomCallback = new SecureRandomCallback(new SecureRandom());
+
+        errorCipherArrayCallback = new ErrorCipherArrayCallback();
+        errorHMACArrayCallback = new ErrorHMACArrayCallback();
+        aesCBC256DecryptArrayCallback = new CipherArrayCallback("AES", "AES/CBC/NoPadding", Cipher.DECRYPT_MODE);
+        hmacSha512ArrayCallback = new MacArrayCallback("HmacSHA512");
+
+        if (options.withFailureDecryptArrayCallbackForTesting()) {
+            System.out.println("Setting error callbacks");
+            mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array(wrapped, errorCipherArrayCallback);
+            mongocrypt_setopt_crypto_hook_hmac_sha_512_array(wrapped, errorHMACArrayCallback);
+        } else {
+            mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array(wrapped, aesCBC256DecryptArrayCallback);
+            mongocrypt_setopt_crypto_hook_hmac_sha_512_array(wrapped, hmacSha512ArrayCallback);
+        }
+
 
         configure(() -> mongocrypt_setopt_crypto_hooks(wrapped, aesCBC256EncryptCallback, aesCBC256DecryptCallback,
                                                         secureRandomCallback, hmacSha512Callback, hmacSha256Callback,

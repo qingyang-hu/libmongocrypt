@@ -20,6 +20,7 @@ package com.mongodb.crypt.capi;
 import com.mongodb.crypt.capi.MongoCryptContext.State;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
+import com.sun.jna.PointerType;
 import org.bson.BsonBinary;
 import org.bson.BsonBinarySubType;
 import org.bson.BsonDocument;
@@ -44,10 +45,7 @@ import java.util.stream.Collectors;
 
 import static com.mongodb.crypt.capi.CAPI.*;
 import static com.mongodb.crypt.capi.CAPI.mongocrypt_status_destroy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertIterableEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SuppressWarnings("SameParameterValue")
 public class MongoCryptTest {
@@ -100,6 +98,71 @@ public class MongoCryptTest {
         mongocrypt_test_random_array(crypt);
         assertEquals(cb.numCalls, 1);
         mongocrypt_destroy (crypt);
+    }
+
+    @Test
+    public void testDecryptArray() throws IOException, URISyntaxException {
+        // Test that error callback results in an exception.
+        {
+            MongoCrypt mongoCrypt = MongoCrypts.create(MongoCryptOptions
+                    .builder()
+                    .awsKmsProviderOptions(MongoAwsKmsProviderOptions.builder()
+                            .accessKeyId("example")
+                            .secretAccessKey("example")
+                            .build())
+                    .localKmsProviderOptions(MongoLocalKmsProviderOptions.builder()
+                            .localMasterKey(ByteBuffer.wrap(new byte[96]))
+                            .build())
+                    .withFailureDecryptArrayCallbackForTesting() // Fail on call to decrypt or hmac array callback.
+                    .build());
+
+            MongoCryptContext decryptor = mongoCrypt.createDecryptionContext(getResourceAsDocument("multiple-encrypted-values.json"));
+
+            assertEquals(State.NEED_MONGO_KEYS, decryptor.getState());
+
+            testKeyDecryptor(decryptor);
+
+            assertEquals(State.READY, decryptor.getState());
+
+            assertThrows(MongoCryptException.class, () -> {
+                RawBsonDocument decryptedDocument = decryptor.finish();
+            });
+
+            decryptor.close();
+
+            mongoCrypt.close();
+        }
+        // Test that the normal callback results in success.
+        {
+            MongoCrypt mongoCrypt = MongoCrypts.create(MongoCryptOptions
+                    .builder()
+                    .awsKmsProviderOptions(MongoAwsKmsProviderOptions.builder()
+                            .accessKeyId("example")
+                            .secretAccessKey("example")
+                            .build())
+                    .localKmsProviderOptions(MongoLocalKmsProviderOptions.builder()
+                            .localMasterKey(ByteBuffer.wrap(new byte[96]))
+                            .build())
+                    .build());
+
+
+            MongoCryptContext decryptor = mongoCrypt.createDecryptionContext(getResourceAsDocument("multiple-encrypted-values.json"));
+
+            assertEquals(State.NEED_MONGO_KEYS, decryptor.getState());
+
+            testKeyDecryptor(decryptor);
+
+            assertEquals(State.READY, decryptor.getState());
+
+            RawBsonDocument decryptedDocument = decryptor.finish();
+
+            assertEquals(State.DONE, decryptor.getState());
+            assertEquals(getResourceAsDocument("multiple-decrypted-values.json"), decryptedDocument);
+
+            decryptor.close();
+
+            mongoCrypt.close();
+        }
     }
     @Test
     public void testEncrypt() throws URISyntaxException, IOException {
