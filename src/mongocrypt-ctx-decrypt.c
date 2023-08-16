@@ -477,7 +477,7 @@ static bool _decrypt_with_array_decryption(mongocrypt_ctx_t *ctx, bson_t *as_bso
     _mongocrypt_buffer_t *associated_datas = NULL;
     uint32_t *bytes_writtens = NULL;
     uint8_t *bson_types = NULL;
-    size_t num_ciphertexts = 0;
+    uint32_t num_ciphertexts = 0;
     bson_t as_bson_replaced = BSON_INITIALIZER;
 
     // `fle1_bson_values` is an array of `_mongocrypt_buffer_t` of BSON binary values containing an FLE1 ciphertext.
@@ -497,7 +497,8 @@ static bool _decrypt_with_array_decryption(mongocrypt_ctx_t *ctx, bson_t *as_bso
         goto fail;
     }
 
-    num_ciphertexts = fle1_bson_values.len;
+    BSON_ASSERT(fle1_bson_values.len < UINT32_MAX);
+    num_ciphertexts = (uint32_t)fle1_bson_values.len;
 
     if (num_ciphertexts == 0) {
         // Nothing to do. Return success.
@@ -515,7 +516,7 @@ static bool _decrypt_with_array_decryption(mongocrypt_ctx_t *ctx, bson_t *as_bso
 
     // Parse ciphertext data into array of buffers.
     const _mongocrypt_value_encryption_algorithm_t *fle1alg = _mcFLE1Algorithm();
-    for (size_t i = 0; i < num_ciphertexts; i++) {
+    for (uint32_t i = 0; i < num_ciphertexts; i++) {
         _mongocrypt_buffer_t fle1_bson_value = _mc_array_index(&fle1_bson_values, _mongocrypt_buffer_t, i);
         _mongocrypt_ciphertext_t fle1_bson_parsed;
         _mongocrypt_buffer_t *ciphertext = &ciphertexts[i];
@@ -560,7 +561,7 @@ static bool _decrypt_with_array_decryption(mongocrypt_ctx_t *ctx, bson_t *as_bso
     }
 
     // Update plaintext lengths.
-    for (size_t i = 0; i < num_ciphertexts; i++) {
+    for (uint32_t i = 0; i < num_ciphertexts; i++) {
         _mongocrypt_buffer_t *plaintext = &plaintexts[i];
         uint32_t *bytes_written = &bytes_writtens[i];
         plaintext->len = *bytes_written;
@@ -586,8 +587,7 @@ static bool _decrypt_with_array_decryption(mongocrypt_ctx_t *ctx, bson_t *as_bso
         }
 
         // Expect all ciphertexts to have replaced.
-        BSON_ASSERT(num_ciphertexts < UINT32_MAX);
-        BSON_ASSERT(idx == (uint32_t)num_ciphertexts);
+        BSON_ASSERT(idx == num_ciphertexts);
 
         // Swap the decrypted BSON with the input.
         bson_destroy(as_bson);
