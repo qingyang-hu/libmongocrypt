@@ -450,6 +450,7 @@ if (BUILD_TESTING)
 endif ()
 
 set (TEST_MONGOCRYPT_SOURCES
+   test/test-array-hooks.c
    test/test-gcp-auth.c
    test/test-mc-efc.c
    test/test-mc-fle2-find-equality-payload-v2.c
