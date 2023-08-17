@@ -646,9 +646,11 @@ static bool _finalize(mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out) {
         return _mongocrypt_ctx_fail_w_msg(ctx, "malformed bson");
     }
 
-    if (!_decrypt_with_array_decryption(ctx, &as_bson)) {
-        bson_destroy(&as_bson);
-        return false;
+    if (ctx->crypt->crypto->aes_256_cbc_decrypt_array || ctx->crypt->crypto->hmac_sha_512_array) {
+        if (!_decrypt_with_array_decryption(ctx, &as_bson)) {
+            bson_destroy(&as_bson);
+            return false;
+        }
     }
 
     bson_iter_init(&iter, &as_bson);
