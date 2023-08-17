@@ -864,13 +864,16 @@ bool mongocrypt_init(mongocrypt_t *crypt) {
     BSON_ASSERT_PARAM(crypt);
 
     if (should_ignore_callbacks()) {
-        printf("detected `IGNORE_CALLBACKS=ON`\n");
-        printf("libmongocrypt will not use array callbacks\n");
+        printf("Detected `IGNORE_CALLBACKS=ON`.\n");
+        printf("libmongocrypt will not use any callbacks.\n");
+        printf("Native crypto will be used if libmongocrypt was built with native crypto support.\n");
     } else if (should_ignore_array_callbacks()) {
-        printf("detected `IGNORE_ARRAY_CALLBACKS=ON`\n");
-        printf("libmongocrypt will not use array callbacks\n");
+        printf("Detected `IGNORE_ARRAY_CALLBACKS=ON`.\n");
+        printf("libmongocrypt will not use array callbacks.\n");
+        printf("Non-array callbacks will be used if set.\n");
+        printf("Otherwise, native crypto will be used if libmongocrypt was built with native crypto support.\n");
     } else {
-        printf("Default callback settings are enabled.\n");
+        printf("Detected default callback settings.\n");
         printf("Array callbacks will be used if set.\n");
         printf("Otherwise, non-array callbacks will be used if set.\n");
         printf("Otherwise, native crypto will be used if libmongocrypt was built with native crypto support.\n");
