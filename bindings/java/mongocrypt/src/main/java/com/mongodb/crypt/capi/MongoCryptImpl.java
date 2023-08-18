@@ -271,10 +271,17 @@ class MongoCryptImpl implements MongoCrypt {
             throw new MongoCryptException("Unable to create new mongocrypt object");
         }
 
+        final boolean env_VERBOSE = System.getenv("VERBOSE") != null
+                && System.getenv("VERBOSE").equals("ON");
         final boolean REUSE_JAVA_CRYPTO_INSTANCES = System.getenv("REUSE_JAVA_CRYPTO_INSTANCES") != null
                 && System.getenv("REUSE_JAVA_CRYPTO_INSTANCES").equals("ON");
-        if (REUSE_JAVA_CRYPTO_INSTANCES) {
-            System.out.println("mongodb-crypt: with reuse of Cipher/Mac instances");
+        if (env_VERBOSE) {
+            System.out.println("mongodb-crypt: prototype version: 1");
+            if (REUSE_JAVA_CRYPTO_INSTANCES) {
+                System.out.println("mongodb-crypt: using callbacks reusing Cipher/Mac instances");
+            } else {
+                System.out.println("mongodb-crypt: using default Cipher/Mac callbacks");
+            }
         }
 
         logCallback = new LogCallback();

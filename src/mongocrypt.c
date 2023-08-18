@@ -841,42 +841,48 @@ static bool _try_enable_csfle(mongocrypt_t *crypt) {
     return mongocrypt_status_type(status) == MONGOCRYPT_STATUS_OK;
 }
 
-static bool should_ignore_callbacks(void) {
-    char *val = getenv("IGNORE_CALLBACKS");
-    if (val && 0 == strcmp(val, "ON")) {
-        return true;
+#define DECL_ENV_FUNCTION(name)                                                                                        \
+    bool env_##name(void) {                                                                                            \
+        static bool checked = false;                                                                                   \
+        static bool value = false;                                                                                     \
+                                                                                                                       \
+        if (checked) {                                                                                                 \
+            return value;                                                                                              \
+        }                                                                                                              \
+                                                                                                                       \
+        char *val = getenv(#name);                                                                                     \
+        if (val && 0 == strcmp(val, "ON")) {                                                                           \
+            value = true;                                                                                              \
+        } else {                                                                                                       \
+            value = false;                                                                                             \
+        }                                                                                                              \
+        checked = true;                                                                                                \
+        return value;                                                                                                  \
     }
-    return false;
-}
 
-static bool should_ignore_array_callbacks(void) {
-    if (should_ignore_callbacks()) {
-        return true;
-    }
-    char *val = getenv("IGNORE_ARRAY_CALLBACKS");
-    if (val && 0 == strcmp(val, "ON")) {
-        return true;
-    }
-    return false;
-}
+DECL_ENV_FUNCTION(VERBOSE)
+DECL_ENV_FUNCTION(IGNORE_CALLBACKS)
+DECL_ENV_FUNCTION(IGNORE_ARRAY_CALLBACKS)
 
 bool mongocrypt_init(mongocrypt_t *crypt) {
     BSON_ASSERT_PARAM(crypt);
 
-    if (should_ignore_callbacks()) {
-        printf("Detected `IGNORE_CALLBACKS=ON`.\n");
-        printf("libmongocrypt will not use any callbacks.\n");
-        printf("Native crypto will be used if libmongocrypt was built with native crypto support.\n");
-    } else if (should_ignore_array_callbacks()) {
-        printf("Detected `IGNORE_ARRAY_CALLBACKS=ON`.\n");
-        printf("libmongocrypt will not use array callbacks.\n");
-        printf("Non-array callbacks will be used if set.\n");
-        printf("Otherwise, native crypto will be used if libmongocrypt was built with native crypto support.\n");
-    } else {
-        printf("Detected default callback settings.\n");
-        printf("Array callbacks will be used if set.\n");
-        printf("Otherwise, non-array callbacks will be used if set.\n");
-        printf("Otherwise, native crypto will be used if libmongocrypt was built with native crypto support.\n");
+    if (env_VERBOSE()) {
+        if (env_IGNORE_CALLBACKS()) {
+            printf("libmongocrypt: Detected `IGNORE_CALLBACKS=ON`.\n");
+            printf("libmongocrypt: Will not use any callbacks.\n");
+            printf("libmongocrypt: Native crypto will be used if built with native crypto support.\n");
+        } else if (env_IGNORE_ARRAY_CALLBACKS()) {
+            printf("libmongocrypt: Detected `IGNORE_ARRAY_CALLBACKS=ON`.\n");
+            printf("libmongocrypt: libmongocrypt will not use array callbacks.\n");
+            printf("libmongocrypt: Non-array callbacks will be used if set.\n");
+            printf("libmongocrypt: Otherwise, native crypto will be used built with native crypto support.\n");
+        } else {
+            printf("libmongocrypt: Detected default callback settings.\n");
+            printf("libmongocrypt: Array callbacks will be used if set.\n");
+            printf("libmongocrypt: Otherwise, non-array callbacks will be used if set.\n");
+            printf("libmongocrypt: Otherwise, native crypto will be used if built with native crypto support.\n");
+        }
     }
 
     mongocrypt_status_t *status = crypt->status;
@@ -1009,7 +1015,7 @@ bool mongocrypt_setopt_crypto_hooks(mongocrypt_t *crypt,
                                     void *ctx) {
     ASSERT_MONGOCRYPT_PARAM_UNINIT(crypt);
 
-    if (should_ignore_callbacks()) {
+    if (env_IGNORE_CALLBACKS()) {
         return true;
     }
 
@@ -1067,7 +1073,7 @@ bool mongocrypt_setopt_crypto_hook_sign_rsaes_pkcs1_v1_5(mongocrypt_t *crypt,
                                                          void *sign_ctx) {
     ASSERT_MONGOCRYPT_PARAM_UNINIT(crypt);
 
-    if (should_ignore_callbacks()) {
+    if (env_IGNORE_CALLBACKS()) {
         return true;
     }
 
@@ -1088,7 +1094,7 @@ bool mongocrypt_setopt_aes_256_ctr(mongocrypt_t *crypt,
                                    void *ctx) {
     ASSERT_MONGOCRYPT_PARAM_UNINIT(crypt);
 
-    if (should_ignore_callbacks()) {
+    if (env_IGNORE_CALLBACKS()) {
         return true;
     }
 
@@ -1118,7 +1124,7 @@ bool mongocrypt_setopt_aes_256_ctr(mongocrypt_t *crypt,
 bool mongocrypt_setopt_aes_256_ecb(mongocrypt_t *crypt, mongocrypt_crypto_fn aes_256_ecb_encrypt, void *ctx) {
     ASSERT_MONGOCRYPT_PARAM_UNINIT(crypt);
 
-    if (should_ignore_callbacks()) {
+    if (env_IGNORE_CALLBACKS()) {
         return true;
     }
 
@@ -1428,7 +1434,7 @@ void mongocrypt_setopt_bypass_query_analysis(mongocrypt_t *crypt) {
 }
 
 bool mongocrypt_setopt_crypto_hook_random_array(mongocrypt_t *crypt, mongocrypt_random_array_fn random_array) {
-    if (should_ignore_array_callbacks()) {
+    if (env_IGNORE_ARRAY_CALLBACKS()) {
         return true;
     }
     BSON_ASSERT_PARAM(crypt);
@@ -1441,7 +1447,7 @@ bool mongocrypt_setopt_crypto_hook_random_array(mongocrypt_t *crypt, mongocrypt_
 }
 
 bool mongocrypt_setopt_crypto_context(mongocrypt_t *crypt, void *ctx) {
-    if (should_ignore_callbacks()) {
+    if (env_IGNORE_CALLBACKS()) {
         return true;
     }
 
@@ -1455,7 +1461,7 @@ bool mongocrypt_setopt_crypto_context(mongocrypt_t *crypt, void *ctx) {
 }
 
 bool mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array(mongocrypt_t *crypt, mongocrypt_crypto_array_fn hook) {
-    if (should_ignore_array_callbacks()) {
+    if (env_IGNORE_ARRAY_CALLBACKS()) {
         return true;
     }
     BSON_ASSERT_PARAM(crypt);
@@ -1468,7 +1474,7 @@ bool mongocrypt_setopt_crypto_hook_aes_256_cbc_decrypt_array(mongocrypt_t *crypt
 }
 
 bool mongocrypt_setopt_crypto_hook_hmac_sha_512_array(mongocrypt_t *crypt, mongocrypt_hmac_array_fn hook) {
-    if (should_ignore_array_callbacks()) {
+    if (env_IGNORE_ARRAY_CALLBACKS()) {
         return true;
     }
     BSON_ASSERT_PARAM(crypt);

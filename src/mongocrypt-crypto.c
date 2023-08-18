@@ -1164,6 +1164,14 @@ bool _decrypt_step_array(_mongocrypt_crypto_t *crypto,
             out_bin_ptrs[i] = &out_bins[i];
             bytes_written_ptrs[i] = &bytes_writtens[i];
         }
+
+        if (env_VERBOSE()) {
+            static uint32_t last_num_entries = 0;
+            if (num_entries != last_num_entries) {
+                printf("libmongocrypt: calling callback with %" PRIu32 " entries\n", num_entries);
+                last_num_entries = num_entries;
+            }
+        }
         bool ok = crypto->aes_256_cbc_decrypt_array(crypto->ctx,
                                                     key_bin_ptrs,
                                                     iv_bin_ptrs,
