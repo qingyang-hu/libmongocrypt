@@ -72,13 +72,13 @@ class MacArrayCallback implements CAPI.mongocrypt_hmac_array_fn {
         for (int i = 0; i < num_entries; i++) {
             final int sizeof_pointer = Native.POINTER_SIZE;
 
-            mongocrypt_binary_t key = mongocrypt_binary_new();
+            mongocrypt_binary_t key = new mongocrypt_binary_t();
             key.setPointer(keys.getPointer(i * sizeof_pointer));
 
-            mongocrypt_binary_t in = mongocrypt_binary_new();
+            mongocrypt_binary_t in = new mongocrypt_binary_t();
             in.setPointer(ins.getPointer(i * sizeof_pointer));
 
-            mongocrypt_binary_t out = mongocrypt_binary_new();
+            mongocrypt_binary_t out = new mongocrypt_binary_t();
             out.setPointer(outs.getPointer(i * sizeof_pointer));
 
             try {
@@ -119,16 +119,16 @@ class CipherArrayCallback implements CAPI.mongocrypt_crypto_array_fn {
         for (int i = 0; i < num_entries; i++) {
             final int sizeof_pointer = Native.POINTER_SIZE;
 
-            mongocrypt_binary_t key = mongocrypt_binary_new();
+            mongocrypt_binary_t key = new mongocrypt_binary_t();
             key.setPointer(keys.getPointer(i * sizeof_pointer));
 
-            mongocrypt_binary_t iv = mongocrypt_binary_new();
+            mongocrypt_binary_t iv = new mongocrypt_binary_t();
             iv.setPointer(ivs.getPointer(i * sizeof_pointer));
 
-            mongocrypt_binary_t in = mongocrypt_binary_new();
+            mongocrypt_binary_t in = new mongocrypt_binary_t();
             in.setPointer(ins.getPointer(i * sizeof_pointer));
 
-            mongocrypt_binary_t out = mongocrypt_binary_new();
+            mongocrypt_binary_t out =new mongocrypt_binary_t();
             out.setPointer(outs.getPointer(i * sizeof_pointer));
 
             Pointer bytesWritten = bytesWrittens.getPointer(i * sizeof_pointer);
