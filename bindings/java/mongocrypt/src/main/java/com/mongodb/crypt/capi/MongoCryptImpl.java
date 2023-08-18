@@ -154,6 +154,79 @@ class CipherArrayCallback implements CAPI.mongocrypt_crypto_array_fn {
     }
 };
 
+
+// AESCBC256DecryptCallbackWithReuse uses a ThreadLocal to store Cipher to avoid repeated calls to `Cipher.getInstance`
+class AESCBC256DecryptCallbackWithReuse implements mongocrypt_crypto_fn {
+    private final String algorithm;
+    private final String transformation;
+    private final int mode;
+
+    private static ThreadLocal<Cipher> cipher = ThreadLocal.withInitial(() -> null);
+
+    AESCBC256DecryptCallbackWithReuse(final String algorithm, final String transformation, final int mode) {
+        this.algorithm = algorithm;
+        this.transformation = transformation;
+        this.mode = mode;
+    }
+
+    @Override
+    public boolean crypt(final Pointer ctx, final mongocrypt_binary_t key, final mongocrypt_binary_t iv,
+                         final mongocrypt_binary_t in, final mongocrypt_binary_t out,
+                         final Pointer bytesWritten, final mongocrypt_status_t status) {
+        try {
+            IvParameterSpec ivParameterSpec = new IvParameterSpec(toByteArray(iv));
+            SecretKeySpec secretKeySpec = new SecretKeySpec(toByteArray(key), algorithm);
+            if (cipher.get() == null) {
+                cipher.set(Cipher.getInstance(transformation));
+            }
+            cipher.get().init(mode, secretKeySpec, ivParameterSpec);
+
+            byte[] result = cipher.get().doFinal(toByteArray(in));
+            writeByteArrayToBinary(out, result);
+            bytesWritten.setInt(0, result.length);
+
+            return true;
+        } catch (Exception e) {
+            mongocrypt_status_set(status, MONGOCRYPT_STATUS_ERROR_CLIENT, 0, new cstring(e.toString()), -1);
+            return false;
+        }
+    }
+}
+
+class HMACSha512CallbackWithReuse implements mongocrypt_hmac_fn {
+    private final String algorithm;
+
+    private static ThreadLocal<Mac> mac = ThreadLocal.withInitial(() -> null);
+
+    HMACSha512CallbackWithReuse(final String algorithm) {
+        this.algorithm = algorithm;
+    }
+
+    @Override
+    public boolean hmac(final Pointer ctx, final mongocrypt_binary_t key, final mongocrypt_binary_t in,
+                        final mongocrypt_binary_t out, final mongocrypt_status_t status) {
+        try {
+            if (mac.get() == null) {
+                mac.set(Mac.getInstance(algorithm));
+            }
+            SecretKeySpec keySpec = new SecretKeySpec(toByteArray(key), algorithm);
+            mac.get().init(keySpec);
+
+            mac.get().update(toByteArray(in));
+
+            byte[] result = mac.get().doFinal();
+            writeByteArrayToBinary(out, result);
+
+            return true;
+        } catch (Exception e) {
+            mongocrypt_status_set(status, MONGOCRYPT_STATUS_ERROR_CLIENT, 0, new cstring(e.toString()), -1);
+            return false;
+        }
+    }
+}
+
+
+
 class MongoCryptImpl implements MongoCrypt {
     private static final Logger LOGGER = Loggers.getLogger();
     private final mongocrypt_t wrapped;
@@ -167,11 +240,15 @@ class MongoCryptImpl implements MongoCrypt {
     @SuppressWarnings("FieldCanBeLocal")
     private final CipherCallback aesCBC256DecryptCallback;
     @SuppressWarnings("FieldCanBeLocal")
+    private final AESCBC256DecryptCallbackWithReuse aesCBC256DecryptCallbackWithReuse;
+    @SuppressWarnings("FieldCanBeLocal")
     private final CipherCallback aesCTR256EncryptCallback;
     @SuppressWarnings("FieldCanBeLocal")
     private final CipherCallback aesCTR256DecryptCallback;
     @SuppressWarnings("FieldCanBeLocal")
     private final MacCallback hmacSha512Callback;
+    @SuppressWarnings("FieldCanBeLocal")
+    private final HMACSha512CallbackWithReuse hmacSha512CallbackWithReuse;
     @SuppressWarnings("FieldCanBeLocal")
     private final MacCallback hmacSha256Callback;
     @SuppressWarnings("FieldCanBeLocal")
@@ -194,6 +271,12 @@ class MongoCryptImpl implements MongoCrypt {
             throw new MongoCryptException("Unable to create new mongocrypt object");
         }
 
+        final boolean REUSE_JAVA_CRYPTO_INSTANCES = System.getenv("REUSE_JAVA_CRYPTO_INSTANCES") != null
+                && System.getenv("REUSE_JAVA_CRYPTO_INSTANCES").equals("ON");
+        if (REUSE_JAVA_CRYPTO_INSTANCES) {
+            System.out.println("mongodb-crypt: with reuse of Cipher/Mac instances");
+        }
+
         logCallback = new LogCallback();
 
         configure(() -> mongocrypt_setopt_log_handler(wrapped, logCallback, null));
@@ -202,10 +285,12 @@ class MongoCryptImpl implements MongoCrypt {
         // to executing the callback
         aesCBC256EncryptCallback = new CipherCallback("AES", "AES/CBC/NoPadding", Cipher.ENCRYPT_MODE);
         aesCBC256DecryptCallback = new CipherCallback("AES", "AES/CBC/NoPadding", Cipher.DECRYPT_MODE);
+        aesCBC256DecryptCallbackWithReuse = new AESCBC256DecryptCallbackWithReuse("AES", "AES/CBC/NoPadding", Cipher.DECRYPT_MODE);
         aesCTR256EncryptCallback = new CipherCallback("AES", "AES/CTR/NoPadding", Cipher.ENCRYPT_MODE);
         aesCTR256DecryptCallback = new CipherCallback("AES", "AES/CTR/NoPadding", Cipher.DECRYPT_MODE);
 
         hmacSha512Callback = new MacCallback("HmacSHA512");
+        hmacSha512CallbackWithReuse = new HMACSha512CallbackWithReuse("HmacSHA512");
         hmacSha256Callback = new MacCallback("HmacSHA256");
         sha256Callback = new MessageDigestCallback("SHA-256");
         secureRandomCallback = new SecureRandomCallback(new SecureRandom());
@@ -224,10 +309,14 @@ class MongoCryptImpl implements MongoCrypt {
             mongocrypt_setopt_crypto_hook_hmac_sha_512_array(wrapped, hmacSha512ArrayCallback);
         }
 
-
-        configure(() -> mongocrypt_setopt_crypto_hooks(wrapped, aesCBC256EncryptCallback, aesCBC256DecryptCallback,
-                                                        secureRandomCallback, hmacSha512Callback, hmacSha256Callback,
-                                                        sha256Callback, null));
+        configure(() -> mongocrypt_setopt_crypto_hooks(wrapped,
+                aesCBC256EncryptCallback,
+                REUSE_JAVA_CRYPTO_INSTANCES ? aesCBC256DecryptCallbackWithReuse : aesCBC256DecryptCallback,
+                secureRandomCallback,
+                REUSE_JAVA_CRYPTO_INSTANCES ? hmacSha512CallbackWithReuse : hmacSha512Callback,
+                hmacSha256Callback,
+                sha256Callback,
+                null));
 
         signingRSAESPKCSCallback = new SigningRSAESPKCSCallback();
         configure(() -> mongocrypt_setopt_crypto_hook_sign_rsaes_pkcs1_v1_5(wrapped, signingRSAESPKCSCallback, null));
