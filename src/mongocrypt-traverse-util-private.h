@@ -44,6 +44,7 @@ bool _mongocrypt_transform_binary_in_bson(_mongocrypt_transform_callback_t cb,
                                           traversal_match_t match,
                                           bson_iter_t *iter,
                                           bson_t *out,
+                                          uint32_t in_len,
                                           mongocrypt_status_t *status) MONGOCRYPT_WARN_UNUSED_RESULT;
 
 #endif /* MONGOCRYPT_TRAVERSE_UTIL_H */

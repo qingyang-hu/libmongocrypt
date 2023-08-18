@@ -370,7 +370,8 @@ static void test_transform(int num_markings,
 
     /* Perform a transformation, count matches */
     BSON_ASSERT(bson_iter_init(&iter, bson));
-    BSON_ASSERT(_mongocrypt_transform_binary_in_bson(test_transform_cb, &matches, match, &iter, &out, status));
+    BSON_ASSERT(
+        _mongocrypt_transform_binary_in_bson(test_transform_cb, &matches, match, &iter, &out, bson->len, status));
 
     /* Make sure we had the correct number of matches */
     BSON_ASSERT(matches == num_matches);

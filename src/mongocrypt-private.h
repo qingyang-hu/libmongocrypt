@@ -181,5 +181,6 @@ bool mongocrypt_setopt_fle2v2(mongocrypt_t *crypt, bool enable);
 bool env_VERBOSE(void);
 bool env_IGNORE_CALLBACKS(void);
 bool env_IGNORE_ARRAY_CALLBACKS(void);
+bool env_PREALLOC_BSON(void);
 
 #endif /* MONGOCRYPT_PRIVATE_H */

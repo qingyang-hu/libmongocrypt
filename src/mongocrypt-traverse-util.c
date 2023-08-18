@@ -162,7 +162,15 @@ bool _mongocrypt_transform_binary_in_bson(_mongocrypt_transform_callback_t cb,
                                           traversal_match_t match,
                                           bson_iter_t *iter,
                                           bson_t *out,
+                                          uint32_t in_len,
                                           mongocrypt_status_t *status) {
+    if (env_PREALLOC_BSON()) {
+        bson_reserve_buffer(out, in_len);
+        // `bson_reserve_buffer` allocates the buffer and sets `out->alloc_size`.
+        // `bson_reserve_buffer` also sets `out->len` (expecting caller to use the returned buffer directly).
+        // Use `bson_reinit` to reuse the allocated buffer and set `out->len` and `out->data` to an empty document.
+        bson_reinit(out);
+    }
     _recurse_state_t starting_state =
         {ctx, *iter, out /* copy */, NULL /* path */, NULL /* traverse callback */, cb, status, match, {0}};
 

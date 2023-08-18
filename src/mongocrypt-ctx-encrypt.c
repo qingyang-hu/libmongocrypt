@@ -1478,6 +1478,7 @@ static bool _fle2_finalize(mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out) {
                                                   TRAVERSE_MATCH_MARKING,
                                                   &iter,
                                                   &converted,
+                                                  as_bson.len,
                                                   ctx->status)) {
             bson_destroy(&converted);
             return _mongocrypt_ctx_fail(ctx);
@@ -1630,6 +1631,7 @@ static bool FLE2RangeFindDriverSpec_to_ciphertexts(mongocrypt_ctx_t *ctx, mongoc
                                                   TRAVERSE_MATCH_MARKING,
                                                   &iter,
                                                   &with_ciphertexts,
+                                                  with_placholders.len,
                                                   ctx->status)) {
             goto fail;
         }
@@ -1810,6 +1812,7 @@ static bool _finalize(mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out) {
                                                   TRAVERSE_MATCH_MARKING,
                                                   &iter,
                                                   &converted,
+                                                  as_bson.len,
                                                   ctx->status)) {
             bson_destroy(&converted);
             return _mongocrypt_ctx_fail(ctx);

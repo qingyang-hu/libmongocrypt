@@ -863,6 +863,7 @@ static bool _try_enable_csfle(mongocrypt_t *crypt) {
 DECL_ENV_FUNCTION(VERBOSE)
 DECL_ENV_FUNCTION(IGNORE_CALLBACKS)
 DECL_ENV_FUNCTION(IGNORE_ARRAY_CALLBACKS)
+DECL_ENV_FUNCTION(PREALLOC_BSON)
 
 bool mongocrypt_init(mongocrypt_t *crypt) {
     BSON_ASSERT_PARAM(crypt);
@@ -882,6 +883,10 @@ bool mongocrypt_init(mongocrypt_t *crypt) {
             printf("libmongocrypt: Array callbacks will be used if set.\n");
             printf("libmongocrypt: Otherwise, non-array callbacks will be used if set.\n");
             printf("libmongocrypt: Otherwise, native crypto will be used if built with native crypto support.\n");
+        }
+        if (env_PREALLOC_BSON()) {
+            printf("libmongocrypt: Detected `PREALLOC_BSON=ON`.\n");
+            printf("libmongocrypt: will preallocating `bson_t` when transforming\n");
         }
     }
 

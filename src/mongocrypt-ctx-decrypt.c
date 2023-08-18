@@ -581,6 +581,7 @@ static bool _decrypt_with_array_decryption(mongocrypt_ctx_t *ctx, bson_t *as_bso
                                                        TRAVERSE_MATCH_CIPHERTEXT,
                                                        &iter,
                                                        &as_bson_replaced,
+                                                       as_bson->len,
                                                        ctx->status);
         if (!ok) {
             goto fail;
@@ -660,6 +661,7 @@ static bool _finalize(mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out) {
                                                TRAVERSE_MATCH_CIPHERTEXT,
                                                &iter,
                                                &final_bson,
+                                               as_bson.len,
                                                ctx->status);
     if (!res) {
         bson_destroy(&final_bson);
