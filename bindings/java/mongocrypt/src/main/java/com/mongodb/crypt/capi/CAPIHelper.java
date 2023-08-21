@@ -70,11 +70,6 @@ final class CAPIHelper {
         return new BinaryHolder(memory, mongocrypt_binary_new_from_data(memory, message.length));
     }
 
-    class MongoCryptBinary {
-        Pointer data;
-        int len;
-    }
-
     static ByteBuffer toByteBuffer(final mongocrypt_binary_t binary) {
         Pointer pointer;
         int length;
