@@ -18,6 +18,7 @@
 package com.mongodb.crypt.capi;
 
 import com.mongodb.crypt.capi.CAPI.mongocrypt_binary_t;
+import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import org.bson.BsonBinaryWriter;
 import org.bson.BsonDocument;
@@ -69,10 +70,24 @@ final class CAPIHelper {
         return new BinaryHolder(memory, mongocrypt_binary_new_from_data(memory, message.length));
     }
 
+    class MongoCryptBinary {
+        Pointer data;
+        int len;
+    }
+
     static ByteBuffer toByteBuffer(final mongocrypt_binary_t binary) {
-        Pointer pointer = mongocrypt_binary_data(binary);
-        int length = mongocrypt_binary_len(binary);
+        Pointer pointer;
+        int length;
+        if (Env.USE_BINARY_DEFINITION) {
+            pointer = binary.getPointer().getPointer(0);
+            final int sizeof_pointer = Native.POINTER_SIZE;
+            length = binary.getPointer().getInt(sizeof_pointer);
+        } else {
+            pointer = mongocrypt_binary_data(binary);
+            length = mongocrypt_binary_len(binary);
+        }
         return pointer.getByteBuffer(0, length);
+
     }
 
     static byte[] toByteArray(final mongocrypt_binary_t binary) {
@@ -83,11 +98,21 @@ final class CAPIHelper {
     }
 
     static void writeByteArrayToBinary(final mongocrypt_binary_t binary, byte[] bytes) {
-        if (mongocrypt_binary_len(binary) < bytes.length) {
-            throw new IllegalArgumentException(format("mongocrypt binary of length %d is not large enough to hold %d bytes",
-                    mongocrypt_binary_len(binary), bytes.length));
+        Pointer outPointer;
+        int length;
+        if (Env.USE_BINARY_DEFINITION) {
+            outPointer = binary.getPointer().getPointer(0);
+            final int sizeof_pointer = Native.POINTER_SIZE;
+            length = binary.getPointer().getInt(sizeof_pointer);
+        } else {
+            outPointer = mongocrypt_binary_data(binary);
+            length = mongocrypt_binary_len(binary);
         }
-        Pointer outPointer = mongocrypt_binary_data(binary);
+
+        if (length < bytes.length) {
+            throw new IllegalArgumentException(format("mongocrypt binary of length %d is not large enough to hold %d bytes",
+                    length, bytes.length));
+        }
         outPointer.write(0, bytes, 0, bytes.length);
     }
 

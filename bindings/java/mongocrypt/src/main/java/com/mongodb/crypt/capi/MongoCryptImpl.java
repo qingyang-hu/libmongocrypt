@@ -271,17 +271,10 @@ class MongoCryptImpl implements MongoCrypt {
             throw new MongoCryptException("Unable to create new mongocrypt object");
         }
 
-        final boolean env_VERBOSE = System.getenv("VERBOSE") != null
-                && System.getenv("VERBOSE").equals("ON");
-        final boolean REUSE_JAVA_CRYPTO_INSTANCES = System.getenv("REUSE_JAVA_CRYPTO_INSTANCES") != null
-                && System.getenv("REUSE_JAVA_CRYPTO_INSTANCES").equals("ON");
-        if (env_VERBOSE) {
-            System.out.println("mongodb-crypt: prototype version: 1");
-            if (REUSE_JAVA_CRYPTO_INSTANCES) {
-                System.out.println("mongodb-crypt: using callbacks reusing Cipher/Mac instances");
-            } else {
-                System.out.println("mongodb-crypt: using default Cipher/Mac callbacks");
-            }
+        Env.init();
+        if (Env.VERBOSE) {
+            Env.print();
+            System.out.println("mongodb-crypt: prototype version: 2");
         }
 
         logCallback = new LogCallback();
@@ -318,9 +311,9 @@ class MongoCryptImpl implements MongoCrypt {
 
         configure(() -> mongocrypt_setopt_crypto_hooks(wrapped,
                 aesCBC256EncryptCallback,
-                REUSE_JAVA_CRYPTO_INSTANCES ? aesCBC256DecryptCallbackWithReuse : aesCBC256DecryptCallback,
+                Env.REUSE_JAVA_CRYPTO_INSTANCES ? aesCBC256DecryptCallbackWithReuse : aesCBC256DecryptCallback,
                 secureRandomCallback,
-                REUSE_JAVA_CRYPTO_INSTANCES ? hmacSha512CallbackWithReuse : hmacSha512Callback,
+                Env.REUSE_JAVA_CRYPTO_INSTANCES ? hmacSha512CallbackWithReuse : hmacSha512Callback,
                 hmacSha256Callback,
                 sha256Callback,
                 null));
