@@ -68,21 +68,21 @@ class MacArrayCallback implements CAPI.mongocrypt_hmac_array_fn {
 
     @Override
     public boolean hmac(Pointer ctx, Pointer keys, Pointer ins, Pointer outs, int num_entries, mongocrypt_status_t status) {
+        try {
+            Mac mac = Mac.getInstance(algorithm);
+            for (int i = 0; i < num_entries; i++) {
+                final int sizeof_pointer = Native.POINTER_SIZE;
 
-        for (int i = 0; i < num_entries; i++) {
-            final int sizeof_pointer = Native.POINTER_SIZE;
+                mongocrypt_binary_t key = new mongocrypt_binary_t();
+                key.setPointer(keys.getPointer(i * sizeof_pointer));
 
-            mongocrypt_binary_t key = new mongocrypt_binary_t();
-            key.setPointer(keys.getPointer(i * sizeof_pointer));
+                mongocrypt_binary_t in = new mongocrypt_binary_t();
+                in.setPointer(ins.getPointer(i * sizeof_pointer));
 
-            mongocrypt_binary_t in = new mongocrypt_binary_t();
-            in.setPointer(ins.getPointer(i * sizeof_pointer));
+                mongocrypt_binary_t out = new mongocrypt_binary_t();
+                out.setPointer(outs.getPointer(i * sizeof_pointer));
 
-            mongocrypt_binary_t out = new mongocrypt_binary_t();
-            out.setPointer(outs.getPointer(i * sizeof_pointer));
 
-            try {
-                Mac mac = Mac.getInstance(algorithm);
                 SecretKeySpec keySpec = new SecretKeySpec(toByteArray(key), algorithm);
                 mac.init(keySpec);
 
@@ -90,13 +90,13 @@ class MacArrayCallback implements CAPI.mongocrypt_hmac_array_fn {
 
                 byte[] result = mac.doFinal();
                 writeByteArrayToBinary(out, result);
-
-            } catch (Exception e) {
-                mongocrypt_status_set(status, MONGOCRYPT_STATUS_ERROR_CLIENT, 0, new cstring(e.toString()), -1);
-                return false;
             }
-
         }
+         catch (Exception e) {
+            mongocrypt_status_set(status, MONGOCRYPT_STATUS_ERROR_CLIENT, 0, new cstring(e.toString()), -1);
+            return false;
+        }
+
 
         return true;
     }
@@ -116,38 +116,40 @@ class CipherArrayCallback implements CAPI.mongocrypt_crypto_array_fn {
     @Override
     public boolean crypt(Pointer ctx, Pointer keys, Pointer ivs, Pointer ins, Pointer outs, Pointer bytesWrittens, int num_entries, mongocrypt_status_t status) {
 
-        for (int i = 0; i < num_entries; i++) {
-            final int sizeof_pointer = Native.POINTER_SIZE;
+        try {
+            Cipher cipher = Cipher.getInstance(transformation);
 
-            mongocrypt_binary_t key = new mongocrypt_binary_t();
-            key.setPointer(keys.getPointer(i * sizeof_pointer));
+            for (int i = 0; i < num_entries; i++) {
+                final int sizeof_pointer = Native.POINTER_SIZE;
 
-            mongocrypt_binary_t iv = new mongocrypt_binary_t();
-            iv.setPointer(ivs.getPointer(i * sizeof_pointer));
+                mongocrypt_binary_t key = new mongocrypt_binary_t();
+                key.setPointer(keys.getPointer(i * sizeof_pointer));
 
-            mongocrypt_binary_t in = new mongocrypt_binary_t();
-            in.setPointer(ins.getPointer(i * sizeof_pointer));
+                mongocrypt_binary_t iv = new mongocrypt_binary_t();
+                iv.setPointer(ivs.getPointer(i * sizeof_pointer));
 
-            mongocrypt_binary_t out =new mongocrypt_binary_t();
-            out.setPointer(outs.getPointer(i * sizeof_pointer));
+                mongocrypt_binary_t in = new mongocrypt_binary_t();
+                in.setPointer(ins.getPointer(i * sizeof_pointer));
 
-            Pointer bytesWritten = bytesWrittens.getPointer(i * sizeof_pointer);
+                mongocrypt_binary_t out = new mongocrypt_binary_t();
+                out.setPointer(outs.getPointer(i * sizeof_pointer));
 
-            // Decrypt entry.
-            try {
+                Pointer bytesWritten = bytesWrittens.getPointer(i * sizeof_pointer);
+
+                // Decrypt entry.
                 IvParameterSpec ivParameterSpec = new IvParameterSpec(toByteArray(iv));
                 SecretKeySpec secretKeySpec = new SecretKeySpec(toByteArray(key), algorithm);
-                Cipher cipher = Cipher.getInstance(transformation);
+
                 cipher.init(mode, secretKeySpec, ivParameterSpec);
 
                 byte[] result = cipher.doFinal(toByteArray(in));
                 writeByteArrayToBinary(out, result);
                 bytesWritten.setInt(0, result.length);
-
-            } catch (Exception e) {
-                mongocrypt_status_set(status, MONGOCRYPT_STATUS_ERROR_CLIENT, 0, new cstring(e.toString()), -1);
-                return false;
             }
+        }
+        catch (Exception e) {
+            mongocrypt_status_set(status, MONGOCRYPT_STATUS_ERROR_CLIENT, 0, new cstring(e.toString()), -1);
+            return false;
         }
 
         return true;
