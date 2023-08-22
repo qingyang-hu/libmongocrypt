@@ -4655,6 +4655,22 @@ static void _test_fle1_collmod_without_jsonSchema(_mongocrypt_tester_t *tester) 
     mongocrypt_destroy(crypt);
 }
 
+static void _test_encrypt_with_invalid_bson(_mongocrypt_tester_t *tester) {
+    mongocrypt_t *crypt = _mongocrypt_tester_mongocrypt(TESTER_MONGOCRYPT_DEFAULT);
+    mongocrypt_ctx_t *ctx = mongocrypt_ctx_new(crypt);
+    // Create the BSON document: { "insert": "bar" }
+    bson_t *invalid_bson = BCON_NEW("insert", "bar");
+    uint8_t *bson_data = (uint8_t *)bson_get_data(invalid_bson);
+    // Give the BSON data an invalid length.
+    bson_data[0] = 255;
+    mongocrypt_binary_t *bin = mongocrypt_binary_new_from_data(bson_data, invalid_bson->len);
+    ASSERT_FAILS(mongocrypt_ctx_setopt_key_encryption_key(ctx, bin), ctx, "invalid BSON");
+    mongocrypt_binary_destroy(bin);
+    bson_destroy(invalid_bson);
+    mongocrypt_ctx_destroy(ctx);
+    mongocrypt_destroy(crypt);
+}
+
 void _mongocrypt_tester_install_ctx_encrypt(_mongocrypt_tester_t *tester) {
     INSTALL_TEST(_test_explicit_encrypt_init);
     INSTALL_TEST(_test_encrypt_init);
@@ -4734,4 +4750,5 @@ void _mongocrypt_tester_install_ctx_encrypt(_mongocrypt_tester_t *tester) {
     INSTALL_TEST(_test_encrypt_fle2_find_range_payload_decimal128);
     INSTALL_TEST(_test_encrypt_fle2_find_range_payload_decimal128_precision);
 #endif
+    INSTALL_TEST(_test_encrypt_with_invalid_bson);
 }
