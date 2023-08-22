@@ -18,6 +18,7 @@
 
 #include "mc-fle2-insert-update-payload-private.h"
 #include "mongocrypt-buffer-private.h"
+#include "mongocrypt-util-private.h"
 #include "mongocrypt.h"
 
 void mc_FLE2InsertUpdatePayload_init(mc_FLE2InsertUpdatePayload_t *payload) {
@@ -120,7 +121,11 @@ bool mc_FLE2InsertUpdatePayload_parse(mc_FLE2InsertUpdatePayload_t *out,
     }
 
     if (!bson_validate(&in_bson, BSON_VALIDATE_NONE, NULL) || !bson_iter_init(&iter, &in_bson)) {
-        CLIENT_ERR("invalid BSON");
+        CLIENT_ERR("invalid BSON: 5");
+        fprintf(stderr, "Dumping invalid BSON ... begin\n");
+        mc_dump_hex(bson_get_data(&in_bson), in_bson.len);
+        fprintf(stderr, "Dumping invalid BSON ... end\n");
+        fflush(stderr);
         return false;
     }
 

@@ -49,7 +49,11 @@ _mongocrypt_marking_parse_fle1_placeholder(const bson_t *in, _mongocrypt_marking
     out->type = MONGOCRYPT_MARKING_FLE1_BY_ID;
 
     if (!bson_iter_init(&iter, in)) {
-        CLIENT_ERR("invalid BSON");
+        CLIENT_ERR("invalid BSON: 8");
+        fprintf(stderr, "Dumping invalid BSON ... begin\n");
+        mc_dump_hex(bson_get_data(in), in->len);
+        fprintf(stderr, "Dumping invalid BSON ... end\n");
+        fflush(stderr);
         return false;
     }
 
@@ -161,7 +165,11 @@ bool _mongocrypt_marking_parse_unowned(const _mongocrypt_buffer_t *in,
     }
 
     if (!bson_init_static(&bson, in->data + 1, in->len - 1) || !bson_validate(&bson, BSON_VALIDATE_NONE, NULL)) {
-        CLIENT_ERR("invalid BSON");
+        CLIENT_ERR("invalid BSON: 1");
+        fprintf(stderr, "Dumping invalid BSON ... begin\n");
+        mc_dump_hex(in->data, in->len);
+        fprintf(stderr, "Dumping invalid BSON ... end\n");
+        fflush(stderr);
         return false;
     }
 

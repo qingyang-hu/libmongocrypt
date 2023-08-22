@@ -135,7 +135,11 @@ bool _mongocrypt_key_parse_owned(const bson_t *bson, _mongocrypt_key_doc_t *out,
     BSON_ASSERT_PARAM(out);
 
     if (!bson_validate(bson, BSON_VALIDATE_NONE, NULL) || !bson_iter_init(&iter, bson)) {
-        CLIENT_ERR("invalid BSON");
+        CLIENT_ERR("invalid BSON: 7");
+        fprintf(stderr, "Dumping invalid BSON ... begin\n");
+        mc_dump_hex(bson_get_data(bson), bson->len);
+        fprintf(stderr, "Dumping invalid BSON ... end\n");
+        fflush(stderr);
         return false;
     }
 

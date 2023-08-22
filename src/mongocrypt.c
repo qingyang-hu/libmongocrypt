@@ -1107,7 +1107,11 @@ bool _mongocrypt_parse_kms_providers(mongocrypt_binary_t *kms_providers_definiti
     BSON_ASSERT_PARAM(kms_providers_definition);
     BSON_ASSERT_PARAM(kms_providers);
     if (!_mongocrypt_binary_to_bson(kms_providers_definition, &as_bson) || !bson_iter_init(&iter, &as_bson)) {
-        CLIENT_ERR("invalid BSON");
+        CLIENT_ERR("invalid BSON: 10");
+        fprintf(stderr, "Dumping invalid BSON ... begin\n");
+        mc_dump_hex(kms_providers_definition->data, kms_providers_definition->len);
+        fprintf(stderr, "Dumping invalid BSON ... end\n");
+        fflush(stderr);
         return false;
     }
 

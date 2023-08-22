@@ -19,6 +19,7 @@
 #include "mongocrypt-log-private.h"
 #include "mongocrypt-opts-private.h"
 #include "mongocrypt-private.h"
+#include "mongocrypt-util-private.h"
 
 #include <kms_message/kms_b64.h>
 
@@ -234,7 +235,11 @@ bool _mongocrypt_parse_optional_utf8(const bson_t *bson, const char *dotkey, cha
     *out = NULL;
 
     if (!bson_iter_init(&iter, bson)) {
-        CLIENT_ERR("invalid BSON");
+        CLIENT_ERR("invalid BSON: 9");
+        fprintf(stderr, "Dumping invalid BSON ... begin\n");
+        mc_dump_hex(bson_get_data(bson), bson->len);
+        fprintf(stderr, "Dumping invalid BSON ... end\n");
+        fflush(stderr);
         return false;
     }
     if (!bson_iter_find_descendant(&iter, dotkey, &child)) {
@@ -329,7 +334,11 @@ bool _mongocrypt_parse_optional_binary(const bson_t *bson,
     _mongocrypt_buffer_init(out);
 
     if (!bson_iter_init(&iter, bson)) {
-        CLIENT_ERR("invalid BSON");
+        CLIENT_ERR("invalid BSON: 1");
+        fprintf(stderr, "Dumping invalid BSON ... begin\n");
+        mc_dump_hex(bson_get_data(bson), bson->len);
+        fprintf(stderr, "Dumping invalid BSON ... end\n");
+        fflush(stderr);
         return false;
     }
     if (!bson_iter_find_descendant(&iter, dotkey, &child)) {

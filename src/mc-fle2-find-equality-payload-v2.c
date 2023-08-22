@@ -18,6 +18,7 @@
 
 #include "mc-fle2-find-equality-payload-private-v2.h"
 #include "mongocrypt-buffer-private.h"
+#include "mongocrypt-util-private.h"
 #include "mongocrypt.h"
 
 void mc_FLE2FindEqualityPayloadV2_init(mc_FLE2FindEqualityPayloadV2_t *payload) {
@@ -83,7 +84,11 @@ bool mc_FLE2FindEqualityPayloadV2_parse(mc_FLE2FindEqualityPayloadV2_t *out,
 
     mc_FLE2FindEqualityPayloadV2_init(out);
     if (!bson_validate(in, BSON_VALIDATE_NONE, NULL) || !bson_iter_init(&iter, in)) {
-        CLIENT_ERR("invalid BSON");
+        CLIENT_ERR("invalid BSON: 2");
+        fprintf(stderr, "Dumping invalid BSON ... begin\n");
+        mc_dump_hex(bson_get_data(in), in->len);
+        fprintf(stderr, "Dumping invalid BSON ... end\n");
+        fflush(stderr);
         return false;
     }
 

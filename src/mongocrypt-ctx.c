@@ -18,6 +18,7 @@
 
 #include "mongocrypt-ctx-private.h"
 #include "mongocrypt-key-broker-private.h"
+#include "mongocrypt-util-private.h"
 
 bool _mongocrypt_ctx_fail_w_msg(mongocrypt_ctx_t *ctx, const char *msg) {
     BSON_ASSERT_PARAM(ctx);
@@ -940,7 +941,11 @@ bool mongocrypt_ctx_setopt_key_encryption_key(mongocrypt_ctx_t *ctx, mongocrypt_
     }
 
     if (!_mongocrypt_binary_to_bson(bin, &as_bson)) {
-        return _mongocrypt_ctx_fail_w_msg(ctx, "invalid BSON");
+        fprintf(stderr, "Dumping invalid BSON ... begin\n");
+        mc_dump_hex(bin->data, bin->len);
+        fprintf(stderr, "Dumping invalid BSON ... end\n");
+        fflush(stderr);
+        return _mongocrypt_ctx_fail_w_msg(ctx, "invalid BSON: 11");
     }
 
     if (!_mongocrypt_kek_parse_owned(&as_bson, &ctx->opts.kek, ctx->status)) {
@@ -1054,7 +1059,11 @@ bool mongocrypt_ctx_setopt_algorithm_range(mongocrypt_ctx_t *ctx, mongocrypt_bin
     }
 
     if (!_mongocrypt_binary_to_bson(opts, &as_bson)) {
-        return _mongocrypt_ctx_fail_w_msg(ctx, "invalid BSON");
+        fprintf(stderr, "Dumping invalid BSON ... begin\n");
+        mc_dump_hex(opts->data, opts->len);
+        fprintf(stderr, "Dumping invalid BSON ... end\n");
+        fflush(stderr);
+        return _mongocrypt_ctx_fail_w_msg(ctx, "invalid BSON: 12");
     }
 
     if (!mc_RangeOpts_parse(&ctx->opts.rangeopts.value, &as_bson, ctx->status)) {
