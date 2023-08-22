@@ -161,4 +161,12 @@ bool mc_isfinite(double d) {
     return isfinite(d);
 }
 
+void mc_dump_hex(const uint8_t *data, uint32_t len) {
+    for (uint32_t i = 0; i < len; i++) {
+        fprintf(stderr, "%02X", data[i]);
+    }
+    fprintf(stderr, "\n");
+    fflush(stderr);
+}
+
 MC_END_CONVERSION_IGNORE
