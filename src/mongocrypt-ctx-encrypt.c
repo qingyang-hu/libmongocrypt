@@ -2363,7 +2363,7 @@ _check_cmd_for_auto_encrypt(mongocrypt_binary_t *cmd, bool *bypass, char **colln
     if (!_mongocrypt_binary_to_bson(cmd, &as_bson) || !bson_iter_init(&iter, &as_bson)) {
         CLIENT_ERR("invalid BSON: 6");
         fprintf(stderr, "Dumping invalid BSON ... begin\n");
-        mc_dump_hex(cmd->data, cmd->len);
+        mc_dump(cmd->data, cmd->len);
         fprintf(stderr, "Dumping invalid BSON ... end\n");
         fflush(stderr);
         return false;

@@ -71,6 +71,6 @@ bool mc_isinf(double d);
 // glibc.
 bool mc_isfinite(double d);
 
-void mc_dump_hex(const uint8_t *data, uint32_t len);
+void mc_dump(const uint8_t *data, uint32_t len);
 
 #endif /* MONGOCRYPT_UTIL_PRIVATE_H */

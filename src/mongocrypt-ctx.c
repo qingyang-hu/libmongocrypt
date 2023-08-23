@@ -942,7 +942,7 @@ bool mongocrypt_ctx_setopt_key_encryption_key(mongocrypt_ctx_t *ctx, mongocrypt_
 
     if (!_mongocrypt_binary_to_bson(bin, &as_bson)) {
         fprintf(stderr, "Dumping invalid BSON ... begin\n");
-        mc_dump_hex(bin->data, bin->len);
+        mc_dump(bin->data, bin->len);
         fprintf(stderr, "Dumping invalid BSON ... end\n");
         fflush(stderr);
         return _mongocrypt_ctx_fail_w_msg(ctx, "invalid BSON: 11");
@@ -1060,7 +1060,7 @@ bool mongocrypt_ctx_setopt_algorithm_range(mongocrypt_ctx_t *ctx, mongocrypt_bin
 
     if (!_mongocrypt_binary_to_bson(opts, &as_bson)) {
         fprintf(stderr, "Dumping invalid BSON ... begin\n");
-        mc_dump_hex(opts->data, opts->len);
+        mc_dump(opts->data, opts->len);
         fprintf(stderr, "Dumping invalid BSON ... end\n");
         fflush(stderr);
         return _mongocrypt_ctx_fail_w_msg(ctx, "invalid BSON: 12");

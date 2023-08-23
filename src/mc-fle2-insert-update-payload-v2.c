@@ -123,7 +123,7 @@ bool mc_FLE2InsertUpdatePayloadV2_parse(mc_FLE2InsertUpdatePayloadV2_t *out,
     if (!bson_validate(&in_bson, BSON_VALIDATE_NONE, NULL) || !bson_iter_init(&iter, &in_bson)) {
         CLIENT_ERR("invalid BSON: 4");
         fprintf(stderr, "Dumping invalid BSON ... begin\n");
-        mc_dump_hex(bson_get_data(&in_bson), in_bson.len);
+        mc_dump(bson_get_data(&in_bson), in_bson.len);
         fprintf(stderr, "Dumping invalid BSON ... end\n");
         fflush(stderr);
         return false;

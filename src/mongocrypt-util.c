@@ -164,31 +164,61 @@ bool mc_isfinite(double d) {
     return isfinite(d);
 }
 
-void mc_dump_hex(const uint8_t *data, uint32_t len) {
-    const char *filepath = "bson_hex.txt";
-    FILE *fptr = fopen(filepath, "w");
-    if (fptr == NULL) {
-        fprintf(stderr, "failed to open file: %s: error=%s", filepath, strerror(errno));
+void mc_dump(const uint8_t *data, uint32_t len) {
+    // Log info.
+    {
+        fprintf(stderr, "length=%" PRIu32 "\n", len);
+        if (len > 1024) {
+            // For large documents, only print first 16 bytes and last 16 bytes.
+            fprintf(stderr, "first 16 bytes: ");
+            for (uint32_t i = 0; i < 16; i++) {
+                fprintf(stderr, "%02X", data[i]);
+            }
+
+            fprintf(stderr, "last 16 bytes: ");
+            for (uint32_t i = len - 16; i < len; i++) {
+                fprintf(stderr, "%02X", data[i]);
+            }
+        } else {
+            fprintf(stderr, "data: ");
+            for (uint32_t i = len - 16; i < len; i++) {
+                fprintf(stderr, "%02X", data[i]);
+            }
+        }
+        fprintf(stderr, "\n");
     }
 
-    // Print absolute path.
+    // Write raw data to file
     {
-        char absolutePath[PATH_MAX];
-
-        if (realpath(filepath, absolutePath) == NULL) {
-            perror("realpath"); // Handle error if realpath fails
+        const char *filepath = "dump.data";
+        FILE *fptr = fopen(filepath, "w");
+        if (fptr == NULL) {
+            fprintf(stderr, "failed to open file: %s: error=%s", filepath, strerror(errno));
             return;
         }
 
-        fprintf(stderr, "dumping BSON data to file: %s\n", absolutePath);
-    }
+        // Print absolute path.
+        {
+            char absolutePath[PATH_MAX];
 
-    for (uint32_t i = 0; i < len; i++) {
-        fprintf(fptr, "%02X", data[i]);
+            if (realpath(filepath, absolutePath) == NULL) {
+                fprintf(stderr, "failed to get realpath: %s", strerror(errno));
+                return;
+            }
+
+            fprintf(stderr, "dumping BSON data to file: %s\n", absolutePath);
+        }
+        size_t got = fwrite(data, sizeof(uint8_t), len, fptr);
+        if (got < len) {
+            fprintf(stderr, "failed to write to file: %s", strerror(errno));
+            fclose(fptr);
+            return;
+        }
+
+        fprintf(fptr, "\n");
+        fflush(fptr);
+        fclose(fptr);
     }
-    fprintf(fptr, "\n");
-    fflush(fptr);
-    fclose(fptr);
 }
 
 MC_END_CONVERSION_IGNORE
