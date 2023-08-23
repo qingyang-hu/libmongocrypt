@@ -37,7 +37,10 @@
 #include "mlib/thread.h"
 
 #include <errno.h>
-#include <math.h> // isinf, isnan, isfinite
+#include <limits.h> // PATH_MAX
+#include <math.h>   // isinf, isnan, isfinite
+#include <stdio.h>  // fprintf
+#include <stdlib.h> // realpath
 
 #ifdef _WIN32
 #include <windows.h>
@@ -162,11 +165,30 @@ bool mc_isfinite(double d) {
 }
 
 void mc_dump_hex(const uint8_t *data, uint32_t len) {
-    for (uint32_t i = 0; i < len; i++) {
-        fprintf(stderr, "%02X", data[i]);
+    const char *filepath = "bson_hex.txt";
+    FILE *fptr = fopen(filepath, "w");
+    if (fptr == NULL) {
+        fprintf(stderr, "failed to open file: %s: error=%s", filepath, strerror(errno));
     }
-    fprintf(stderr, "\n");
-    fflush(stderr);
+
+    // Print absolute path.
+    {
+        char absolutePath[PATH_MAX];
+
+        if (realpath(filepath, absolutePath) == NULL) {
+            perror("realpath"); // Handle error if realpath fails
+            return;
+        }
+
+        fprintf(stderr, "dumping BSON data to file: %s\n", absolutePath);
+    }
+
+    for (uint32_t i = 0; i < len; i++) {
+        fprintf(fptr, "%02X", data[i]);
+    }
+    fprintf(fptr, "\n");
+    fflush(fptr);
+    fclose(fptr);
 }
 
 MC_END_CONVERSION_IGNORE
