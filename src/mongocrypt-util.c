@@ -174,11 +174,13 @@ void mc_dump(const uint8_t *data, uint32_t len) {
             for (uint32_t i = 0; i < 16; i++) {
                 fprintf(stderr, "%02X", data[i]);
             }
+            fprintf(stderr, "\n");
 
             fprintf(stderr, "last 16 bytes: ");
             for (uint32_t i = len - 16; i < len; i++) {
                 fprintf(stderr, "%02X", data[i]);
             }
+            fprintf(stderr, "\n");
         } else {
             fprintf(stderr, "data: ");
             for (uint32_t i = len - 16; i < len; i++) {
